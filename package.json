@@ -1,0 +1,17 @@
+{
+  "name": "character",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "typescript": "^5.0.0"
+  }
+}

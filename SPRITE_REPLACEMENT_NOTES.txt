@@ -1,0 +1,2 @@
+This replacement pack was cut from the uploaded atlas. The atlas did not contain dialogue_box.png, so the existing UI dialogue box should be retained.
+All character/sword/slime/effect/icon/portrait PNGs have transparent backgrounds and consistent square frame canvases.
