@@ -30,6 +30,11 @@ export default class HuntScene extends Phaser.Scene {
   private slimeAlive = true;
   private slimeDirection = 1;
 
+  private slime2!: Phaser.Physics.Arcade.Sprite;
+  private slime2HP = 30;
+  private slime2Alive = true;
+  private slime2Direction = 1;
+
   private cursors!: Record<
     "w" | "a" | "s" | "d" | "up" | "left" | "down" | "right",
     Phaser.Input.Keyboard.Key
@@ -70,6 +75,12 @@ export default class HuntScene extends Phaser.Scene {
   private readonly SLIME_HEIGHT = 56;
   private readonly SLIME_SPEED = 60;
 
+  // SECOND SLIME TEST POSITION - change these after testing.
+  private readonly SLIME2_X = 1350;
+  private readonly SLIME2_TOP_Y = 900;
+  private readonly SLIME2_BOTTOM_Y = 1000;
+  private readonly SLIME2_SPEED = 60;
+
   private readonly CAVE_X = 1715;
   private readonly CAVE_Y = 400;
   private readonly CAVE_DISTANCE = 115;
@@ -82,27 +93,27 @@ export default class HuntScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image("huntingMap", "/assets/maps/HuntingG.png");
-    this.load.image("dialogue_box", "/assets/sprites/ui/dialogue_box.png");
-    this.load.image("player_face", "/assets/sprites/portraits/player_face.png");
+    this.load.image("huntingMap", "./assets/maps/HuntingG.png");
+    this.load.image("dialogue_box", "./assets/sprites/ui/dialogue_box.png");
+    this.load.image("player_face", "./assets/sprites/portraits/player_face.png");
 
     // Normal player walking = 4 frames.
     for (let i = 1; i <= 4; i++) {
       this.load.image(
         `char_down_${i}`,
-        `/assets/sprites/player/char_down_${i}.png`
+        `./assets/sprites/player/char_down_${i}.png`
       );
       this.load.image(
         `char_up_${i}`,
-        `/assets/sprites/player/char_up_${i}.png`
+        `./assets/sprites/player/char_up_${i}.png`
       );
       this.load.image(
         `char_left_${i}`,
-        `/assets/sprites/player/char_left_${i}.png`
+        `./assets/sprites/player/char_left_${i}.png`
       );
       this.load.image(
         `char_right_${i}`,
-        `/assets/sprites/player/char_right_${i}.png`
+        `./assets/sprites/player/char_right_${i}.png`
       );
     }
 
@@ -110,19 +121,19 @@ export default class HuntScene extends Phaser.Scene {
     for (let i = 1; i <= 8; i++) {
       this.load.image(
         `sword_walk_down_${i}`,
-        `/assets/sprites/sword/walk/sword_walk_down_${i}.png`
+        `./assets/sprites/sword/walk/sword_walk_down_${i}.png`
       );
       this.load.image(
         `sword_walk_up_${i}`,
-        `/assets/sprites/sword/walk/sword_walk_up_${i}.png`
+        `./assets/sprites/sword/walk/sword_walk_up_${i}.png`
       );
       this.load.image(
         `sword_walk_left_${i}`,
-        `/assets/sprites/sword/walk/sword_walk_left_${i}.png`
+        `./assets/sprites/sword/walk/sword_walk_left_${i}.png`
       );
       this.load.image(
         `sword_walk_right_${i}`,
-        `/assets/sprites/sword/walk/sword_walk_right_${i}.png`
+        `./assets/sprites/sword/walk/sword_walk_right_${i}.png`
       );
     }
 
@@ -130,19 +141,19 @@ export default class HuntScene extends Phaser.Scene {
     for (let i = 1; i <= 8; i++) {
       this.load.image(
         `sword_attack_down_${i}`,
-        `/assets/sprites/sword/attack/sword_attack_down_${i}.png`
+        `./assets/sprites/sword/attack/sword_attack_down_${i}.png`
       );
       this.load.image(
         `sword_attack_up_${i}`,
-        `/assets/sprites/sword/attack/sword_attack_up_${i}.png`
+        `./assets/sprites/sword/attack/sword_attack_up_${i}.png`
       );
       this.load.image(
         `sword_attack_left_${i}`,
-        `/assets/sprites/sword/attack/sword_attack_left_${i}.png`
+        `./assets/sprites/sword/attack/sword_attack_left_${i}.png`
       );
       this.load.image(
         `sword_attack_right_${i}`,
-        `/assets/sprites/sword/attack/sword_attack_right_${i}.png`
+        `./assets/sprites/sword/attack/sword_attack_right_${i}.png`
       );
     }
 
@@ -150,20 +161,20 @@ export default class HuntScene extends Phaser.Scene {
     for (let i = 1; i <= 4; i++) {
       this.load.image(
         `slime_idle_${i}`,
-        `/assets/sprites/slimes/idle/slime_idle_${i}.png`
+        `./assets/sprites/slimes/idle/slime_idle_${i}.png`
       );
     }
 
     for (let i = 1; i <= 8; i++) {
       this.load.image(
         `slime_move_${i}`,
-        `/assets/sprites/slimes/move/slime_move_${i}.png`
+        `./assets/sprites/slimes/move/slime_move_${i}.png`
       );
     }
 
     this.load.json(
       "huntingCollisions",
-      "/assets/data/hunting_collisions.json"
+      "./assets/data/hunting_collisions.json"
     );
   }
 
@@ -337,6 +348,7 @@ export default class HuntScene extends Phaser.Scene {
     this.rewardPopupOpen = false;
 
     this.createSlime();
+    this.createSlime2();
     this.createCaveLabel();
     this.createHUD();
 
@@ -434,6 +446,7 @@ export default class HuntScene extends Phaser.Scene {
     }
 
     this.updateSlime(delta);
+    this.updateSlime2(delta);
     this.checkSlimeContactDamage();
 
     if (Phaser.Input.Keyboard.JustDown(this.attackKey)) {
@@ -556,126 +569,118 @@ export default class HuntScene extends Phaser.Scene {
     }
   }
 
-  private checkSlimeContactDamage() {
-    if (
-      !this.slimeAlive ||
-      !this.slime ||
-      !this.slime.active ||
-      this.slimeDamageCooldown > 0 ||
-      this.health <= 0
-    ) {
+  private createSlime2() {
+    if (this.registry.get("slime2Defeated") === true) {
+      this.slime2Alive = false;
       return;
     }
 
-    const distance = Phaser.Math.Distance.Between(
-      this.player.x,
-      this.player.y,
-      this.slime.x,
-      this.slime.y
-    );
+    this.slime2Alive = true;
+    this.slime2HP = 30;
+    this.slime2Direction = 1;
 
-    // Damage the player when they get close enough to the slime.
-    // The cooldown prevents HP from disappearing every frame.
-    const contactDistance = 75;
+    this.slime2 = this.physics.add.sprite(this.SLIME2_X, this.SLIME2_TOP_Y, "slime_idle_1");
+    this.slime2.setDepth(15);
+    this.slime2.setCollideWorldBounds(true);
+    this.slime2.setDisplaySize(this.SLIME_HEIGHT, this.SLIME_HEIGHT);
 
-    if (distance <= contactDistance) {
-      const damage = 10;
+    const body = this.slime2.body as Phaser.Physics.Arcade.Body;
+    body.setSize(this.SLIME_HEIGHT * 0.70, this.SLIME_HEIGHT * 0.62);
+    body.setOffset(this.SLIME_HEIGHT * 0.15, this.SLIME_HEIGHT * 0.22);
+    this.slime2.play("slime_idle");
+  }
 
-      this.health = Math.max(0, this.health - damage);
-      this.slimeDamageCooldown = 900;
+  private updateSlime2(delta: number) {
+    if (!this.slime2Alive || !this.slime2?.active) return;
 
-      this.registry.set("playerHealth", this.health);
-      this.updateHealthBar();
+    this.slime2.y += this.slime2Direction * this.SLIME2_SPEED * (delta / 1000);
 
-      // Brief red flash to make the hit obvious.
-      const flash = this.add.rectangle(
-        0,
-        0,
-        this.scale.width,
-        this.scale.height,
-        0xff0000,
-        0.12
+    if (this.slime2.y >= this.SLIME2_BOTTOM_Y) {
+      this.slime2.y = this.SLIME2_BOTTOM_Y;
+      this.slime2Direction = -1;
+    } else if (this.slime2.y <= this.SLIME2_TOP_Y) {
+      this.slime2.y = this.SLIME2_TOP_Y;
+      this.slime2Direction = 1;
+    }
+
+    this.slime2.setVelocity(0, 0);
+    if (!this.slime2.anims.isPlaying || this.slime2.anims.currentAnim?.key !== "slime_move") {
+      this.slime2.play("slime_move");
+    }
+  }
+
+  private checkSlimeContactDamage() {
+    if (this.slimeDamageCooldown > 0 || this.health <= 0) return;
+
+    const slimes = [
+      this.slimeAlive && this.slime?.active ? this.slime : null,
+      this.slime2Alive && this.slime2?.active ? this.slime2 : null,
+    ].filter((s): s is Phaser.Physics.Arcade.Sprite => s !== null);
+
+    for (const slime of slimes) {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x, this.player.y, slime.x, slime.y
       );
-      flash.setScrollFactor(0);
-      flash.setDepth(1000);
 
-      this.tweens.add({
-        targets: flash,
-        alpha: 0,
-        duration: 180,
-        onComplete: () => flash.destroy(),
-      });
+      if (distance <= 75) {
+        this.health = Math.max(0, this.health - 10);
+        this.slimeDamageCooldown = 900;
+        this.registry.set("playerHealth", this.health);
+        this.updateHealthBar();
 
-      // Small knockback away from the slime.
-      const angle = Phaser.Math.Angle.Between(
-        this.slime.x,
-        this.slime.y,
-        this.player.x,
-        this.player.y
-      );
+        const flash = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0xff0000, 0.12);
+        flash.setScrollFactor(0);
+        flash.setDepth(1000);
+        this.tweens.add({ targets: flash, alpha: 0, duration: 180, onComplete: () => flash.destroy() });
 
-      this.player.x += Math.cos(angle) * 18;
-      this.player.y += Math.sin(angle) * 18;
+        const angle = Phaser.Math.Angle.Between(slime.x, slime.y, this.player.x, this.player.y);
+        this.player.x += Math.cos(angle) * 18;
+        this.player.y += Math.sin(angle) * 18;
 
-      if (this.health <= 0) {
-        this.health = 0;
-        this.registry.set("playerHealth", 0);
-        this.player.setVelocity(0, 0);
-        this.showGameOver();
+        if (this.health <= 0) {
+          this.health = 0;
+          this.registry.set("playerHealth", 0);
+          this.player.setVelocity(0, 0);
+          this.showGameOver();
+        }
+        return;
       }
     }
   }
 
   private attack() {
-    if (
-      this.attackCooldown > 0 ||
-      this.swordAttackPlaying ||
-      this.punchPlaying
-    ) {
-      return;
-    }
+    if (this.attackCooldown > 0 || this.swordAttackPlaying || this.punchPlaying) return;
 
     this.attackCooldown = 350;
 
-    // Before the player owns a sword, J performs a quick punch.
-    // Once the sword is purchased, J switches to the sword attack.
-    if (this.hasSword) {
-      this.playSwordAttack();
+    if (this.hasSword) this.playSwordAttack();
+    else this.playPunchAttack();
+
+    const candidates: { slime: Phaser.Physics.Arcade.Sprite; distance: number; id: 1 | 2 }[] = [];
+
+    if (this.slimeAlive && this.slime?.active) {
+      candidates.push({ slime: this.slime, distance: Phaser.Math.Distance.Between(this.player.x, this.player.y, this.slime.x, this.slime.y), id: 1 });
+    }
+    if (this.slime2Alive && this.slime2?.active) {
+      candidates.push({ slime: this.slime2, distance: Phaser.Math.Distance.Between(this.player.x, this.player.y, this.slime2.x, this.slime2.y), id: 2 });
+    }
+
+    candidates.sort((a, b) => a.distance - b.distance);
+    const target = candidates[0];
+
+    if (!target || target.distance > 105) {
+      if (!this.hasSword) this.showAttackEffect(false);
+      return;
+    }
+
+    if (!this.hasSword) this.showAttackEffect(true);
+
+    if (target.id === 1) {
+      this.slimeHP -= 10;
+      if (this.slimeHP <= 0) this.killSlime();
     } else {
-      this.playPunchAttack();
-    }
-
-    if (
-      !this.slimeAlive ||
-      !this.slime ||
-      !this.slime.active
-    ) {
-      return;
-    }
-
-    const distance = Phaser.Math.Distance.Between(
-      this.player.x,
-      this.player.y,
-      this.slime.x,
-      this.slime.y
-    );
-
-    if (distance > 105) {
-      if (!this.hasSword) {
-        this.showAttackEffect(false);
-      }
-
-      return;
-    }
-
-    if (!this.hasSword) {
-      this.showAttackEffect(true);
-    }
-
-    this.slimeHP -= 10;
-
-    if (this.slimeHP <= 0) {
-      this.killSlime();
+      this.slime2HP -= 10;
+      if (this.slime2HP <= 0) this.killSlime2();
     }
   }
 
@@ -832,111 +837,68 @@ export default class HuntScene extends Phaser.Scene {
 
   private showAttackEffect(hit: boolean) {
     this.attackFlash?.destroy();
-
     const g = this.add.graphics();
     g.setDepth(40);
-
     let angle = Phaser.Math.DegToRad(90);
 
-    if (this.slimeAlive && this.slime?.active) {
-      angle = Phaser.Math.Angle.Between(
-        this.player.x,
-        this.player.y,
-        this.slime.x,
-        this.slime.y
-      );
+    const targets: Phaser.Physics.Arcade.Sprite[] = [];
+    if (this.slimeAlive && this.slime?.active) targets.push(this.slime);
+    if (this.slime2Alive && this.slime2?.active) targets.push(this.slime2);
+
+    if (targets.length > 0) {
+      targets.sort((a, b) => Phaser.Math.Distance.Between(this.player.x, this.player.y, a.x, a.y) - Phaser.Math.Distance.Between(this.player.x, this.player.y, b.x, b.y));
+      angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, targets[0].x, targets[0].y);
     } else {
-      if (this.currentDirection === Animation.Up) {
-        angle = -Math.PI / 2;
-      }
-
-      if (this.currentDirection === Animation.Down) {
-        angle = Math.PI / 2;
-      }
-
-      if (this.currentDirection === Animation.Left) {
-        angle = Math.PI;
-      }
-
-      if (this.currentDirection === Animation.Right) {
-        angle = 0;
-      }
+      if (this.currentDirection === Animation.Up) angle = -Math.PI / 2;
+      if (this.currentDirection === Animation.Down) angle = Math.PI / 2;
+      if (this.currentDirection === Animation.Left) angle = Math.PI;
+      if (this.currentDirection === Animation.Right) angle = 0;
     }
 
-    g.lineStyle(
-      7,
-      hit ? 0xf5d76e : 0xffffff,
-      0.9
-    );
-
+    g.lineStyle(7, hit ? 0xf5d76e : 0xffffff, 0.9);
     g.beginPath();
-
-    g.arc(
-      this.player.x,
-      this.player.y,
-      55,
-      angle - 0.75,
-      angle + 0.75
-    );
-
+    g.arc(this.player.x, this.player.y, 55, angle - 0.75, angle + 0.75);
     g.strokePath();
-
     this.attackFlash = g;
 
     this.time.delayedCall(120, () => {
       g.destroy();
-
-      if (this.attackFlash === g) {
-        this.attackFlash = undefined;
-      }
+      if (this.attackFlash === g) this.attackFlash = undefined;
     });
   }
 
   private killSlime() {
     this.slimeAlive = false;
-
     this.registry.set("slimeDefeated", true);
-
     this.slime.setVisible(false);
     this.slime.disableBody(true, true);
+    this.giveSlimeReward(this.slime.x, this.slime.y);
+  }
 
+  private killSlime2() {
+    this.slime2Alive = false;
+    this.registry.set("slime2Defeated", true);
+    this.slime2.setVisible(false);
+    this.slime2.disableBody(true, true);
+    this.giveSlimeReward(this.slime2.x, this.slime2.y);
+  }
+
+  private giveSlimeReward(x: number, y: number) {
     this.rubies += 20;
-
-    this.registry.set(
-      "playerRubies",
-      this.rubies
-    );
-
-    this.rubyText.setText(
-      `♦  Rubies: ${this.rubies}`
-    );
-
+    this.registry.set("playerRubies", this.rubies);
+    this.rubyText.setText(`♦  Rubies: ${this.rubies}`);
     this.showSwordQuestPopup();
 
-    const reward = this.add.text(
-      this.slime.x,
-      this.slime.y - 35,
-      "+20 RUBIES",
-      {
-        fontFamily: "Georgia",
-        fontSize: "22px",
-        fontStyle: "bold",
-        color: "#f5d76e",
-        stroke: "#000000",
-        strokeThickness: 5,
-      }
-    );
-
+    const reward = this.add.text(x, y - 35, "+20 RUBIES", {
+      fontFamily: "Georgia", fontSize: "22px", fontStyle: "bold",
+      color: "#f5d76e", stroke: "#000000", strokeThickness: 5,
+    });
     reward.setOrigin(0.5);
     reward.setDepth(100);
 
     this.tweens.add({
-      targets: reward,
-      y: reward.y - 45,
-      alpha: 0,
-      duration: 1200,
-      ease: "Cubic.easeOut",
-      onComplete: () => reward.destroy(),
+      targets: reward, y: reward.y - 45, alpha: 0, duration: 1200,
+      ease: "Cubic.easeOut", onComplete: () => reward.destroy(),
     });
   }
 
