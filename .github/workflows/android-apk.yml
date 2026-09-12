@@ -38,18 +38,23 @@ jobs:
       - name: Install Capacitor
         run: npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7
 
+      - name: Prepare game assets
+        run: |
+          rm -rf public/assets
+          cp -r assets public/assets
+
       - name: Build game
         run: npx vite build
 
       - name: Create Capacitor config
         run: |
-          cat > capacitor.config.json <<'EOF'
+          cat > capacitor.config.json <<'EOF2'
           {
             "appId": "com.omar.dungeongame",
             "appName": "Dungeon Game",
             "webDir": "dist"
           }
-          EOF
+          EOF2
 
       - name: Create Android project
         run: npx cap add android
