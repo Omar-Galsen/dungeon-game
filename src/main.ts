@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 
+import MainMenuScene from "./scenes/MainMenuScene";
 import GameScene from "./scenes/GameScene";
 import HuntScene from "./scenes/HuntScene";
 import DungeonScene from "./scenes/DungeonScene";
@@ -14,11 +15,10 @@ installSwordProgressionPatch();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-
   width: 1000,
   height: 700,
-
   backgroundColor: "#090b10",
+  parent: "game",
 
   physics: {
     default: "arcade",
@@ -37,6 +37,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
 
   scene: [
+    MainMenuScene,
     GameScene,
     HuntScene,
     DungeonScene,
