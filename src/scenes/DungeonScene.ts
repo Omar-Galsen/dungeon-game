@@ -1,5 +1,20 @@
 import Phaser from "phaser";
 
+type CollisionBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type DungeonCollisionData = {
+  sourceWidth: number;
+  sourceHeight: number;
+  worldScale: number;
+  cellSize: number;
+  boxes: CollisionBox[];
+};
+
 enum Direction {
   Down = "down",
   Up = "up",
@@ -9,21 +24,35 @@ enum Direction {
 
 export default class DungeonScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
+  private walls!: Phaser.Physics.Arcade.StaticGroup;
   private cursors!: Record<
     "w" | "a" | "s" | "d" | "up" | "left" | "down" | "right",
     Phaser.Input.Keyboard.Key
   >;
   private exitKey!: Phaser.Input.Keyboard.Key;
   private currentDirection: Direction = Direction.Down;
+
   private readonly PLAYER_SPEED = 180;
   private readonly PLAYER_WIDTH = 93;
   private readonly PLAYER_HEIGHT = 124;
+
+  private worldWidth = 2508;
+  private worldHeight = 2508;
+
+  // Entrance position taken from the generated Dungeon II map.
+  private readonly ENTRANCE_X = 440;
+  private readonly ENTRANCE_Y = 1020;
+  private readonly EXIT_DISTANCE = 150;
 
   constructor() {
     super("DungeonScene");
   }
 
   preload() {
+    // Put the generated PNG at assets/maps/dungeon2_map.png.
+    this.load.image("dungeon2Map", "./assets/maps/dungeon2_map.png");
+    this.load.json("dungeon2Collisions", "./assets/data/dungeon2_collisions.json");
+
     for (let i = 1; i <= 4; i++) {
       this.load.image(`d2_char_down_${i}`, `./assets/sprites/player/char_down_${i}.png`);
       this.load.image(`d2_char_up_${i}`, `./assets/sprites/player/char_up_${i}.png`);
@@ -33,63 +62,86 @@ export default class DungeonScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor("#090711");
-    this.physics.world.setBounds(0, 0, 1600, 1100);
-    this.cameras.main.setBounds(0, 0, 1600, 1100);
+    this.cameras.main.setBackgroundColor("#050609");
 
-    const floor = this.add.rectangle(800, 550, 1500, 1000, 0x171126, 1);
-    floor.setStrokeStyle(10, 0x312e81, 1);
-
-    for (let x = 140; x <= 1460; x += 120) {
-      for (let y = 130; y <= 970; y += 120) {
-        const tile = this.add.rectangle(x, y, 105, 105, 0x211a35, 0.55);
-        tile.setStrokeStyle(1, 0x4338ca, 0.25);
-      }
+    const collisionData = this.cache.json.get("dungeon2Collisions") as DungeonCollisionData | null;
+    if (collisionData) {
+      this.worldWidth = collisionData.sourceWidth * collisionData.worldScale;
+      this.worldHeight = collisionData.sourceHeight * collisionData.worldScale;
     }
 
-    const entranceGlow = this.add.circle(800, 920, 75, 0x6d28d9, 0.28);
-    this.tweens.add({
-      targets: entranceGlow,
-      alpha: 0.65,
-      scale: 1.16,
-      duration: 900,
-      yoyo: true,
-      repeat: -1,
-    });
+    this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
+    this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
 
-    const title = this.add.text(800, 120, "DUNGEON II", {
-      fontFamily: "Georgia",
-      fontSize: "48px",
-      fontStyle: "bold",
-      color: "#f5d76e",
-      stroke: "#000000",
-      strokeThickness: 7,
-    });
-    title.setOrigin(0.5);
+    // Use the generated Dungeon II PNG when it is present. Keep a fallback so the
+    // scene still opens while the PNG is being copied into assets/maps.
+    if (this.textures.exists("dungeon2Map")) {
+      const map = this.add.image(0, 0, "dungeon2Map").setOrigin(0, 0);
+      map.setDisplaySize(this.worldWidth, this.worldHeight);
+      map.setDepth(0);
+    } else {
+      const fallback = this.add.rectangle(
+        this.worldWidth / 2,
+        this.worldHeight / 2,
+        this.worldWidth,
+        this.worldHeight,
+        0x090711,
+        1
+      );
+      fallback.setDepth(0);
 
-    const subtitle = this.add.text(800, 185, "The deeper dungeon has been unlocked.", {
-      fontFamily: "Arial",
-      fontSize: "22px",
-      color: "#ddd6fe",
-    });
-    subtitle.setOrigin(0.5);
+      this.add
+        .text(this.worldWidth / 2, 180, "DUNGEON II", {
+          fontFamily: "Georgia",
+          fontSize: "52px",
+          fontStyle: "bold",
+          color: "#f5d76e",
+          stroke: "#000000",
+          strokeThickness: 7,
+        })
+        .setOrigin(0.5)
+        .setDepth(1);
+    }
 
-    const hint = this.add.text(800, 970, "Press X near the entrance to return to the hunting grounds", {
-      fontFamily: "Arial",
-      fontSize: "18px",
-      fontStyle: "bold",
-      color: "#ffffff",
-      stroke: "#000000",
-      strokeThickness: 4,
-    });
-    hint.setOrigin(0.5);
+    // These boxes were generated automatically from the PNG. Dark cave walls,
+    // outside void, and blue water were classified as blocked areas; bridges and
+    // walkable floor remain open.
+    this.walls = this.physics.add.staticGroup();
+    for (const box of collisionData?.boxes ?? []) {
+      const wall = this.walls.create(box.x, box.y, undefined) as Phaser.Physics.Arcade.Image;
+      wall.setVisible(false);
+      wall.setDisplaySize(box.width, box.height);
+      wall.refreshBody();
+    }
 
     this.createAnimations();
 
-    this.player = this.physics.add.sprite(800, 820, "d2_char_down_1");
+    this.player = this.physics.add.sprite(this.ENTRANCE_X, this.ENTRANCE_Y, "d2_char_right_1");
     this.player.setDisplaySize(this.PLAYER_WIDTH, this.PLAYER_HEIGHT);
     this.player.setCollideWorldBounds(true);
     this.player.setDepth(20);
+
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.setSize(this.PLAYER_WIDTH * 0.5, this.PLAYER_HEIGHT * 0.46);
+    body.setOffset(this.PLAYER_WIDTH * 0.25, this.PLAYER_HEIGHT * 0.48);
+
+    this.physics.add.collider(this.player, this.walls);
+
+    const entranceHint = this.add.text(
+      this.ENTRANCE_X - 20,
+      this.ENTRANCE_Y + 90,
+      "X TO RETURN",
+      {
+        fontFamily: "Arial",
+        fontSize: "18px",
+        fontStyle: "bold",
+        color: "#ffffff",
+        stroke: "#000000",
+        strokeThickness: 5,
+      }
+    );
+    entranceHint.setOrigin(0.5);
+    entranceHint.setDepth(30);
 
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error("Keyboard input unavailable.");
@@ -104,7 +156,9 @@ export default class DungeonScene extends Phaser.Scene {
       down: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
       right: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
     };
+
     this.exitKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+    keyboard.resetKeys();
 
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
   }
@@ -144,11 +198,17 @@ export default class DungeonScene extends Phaser.Scene {
       this.player.anims.stop();
       this.player.setTexture(`d2_char_${this.currentDirection}_1`);
     }
+
     this.player.setDisplaySize(this.PLAYER_WIDTH, this.PLAYER_HEIGHT);
 
     if (
       Phaser.Input.Keyboard.JustDown(this.exitKey) &&
-      Phaser.Math.Distance.Between(this.player.x, this.player.y, 800, 920) <= 130
+      Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.ENTRANCE_X,
+        this.ENTRANCE_Y
+      ) <= this.EXIT_DISTANCE
     ) {
       this.scene.start("HuntScene");
     }
