@@ -49,6 +49,7 @@ export default class HuntScene extends Phaser.Scene {
 
   private currentDirection: Animation = Animation.Down;
 
+  private readonly PLAYER_WIDTH = 93;
   private readonly PLAYER_HEIGHT = 124;
   private readonly PLAYER_SPEED = 180;
 
@@ -390,8 +391,10 @@ export default class HuntScene extends Phaser.Scene {
   }
 
   private setPlayerSize() {
-    const source = this.player.texture.getSourceImage();
-    if (source.height > 0) this.player.setScale(this.PLAYER_HEIGHT / source.height);
+    this.player.setDisplaySize(
+      this.PLAYER_WIDTH,
+      this.PLAYER_HEIGHT
+    );
   }
 
   private updatePlayerBody() {
