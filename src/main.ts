@@ -2,6 +2,7 @@ import Phaser from "phaser";
 
 import GameScene from "./scenes/GameScene";
 import HuntScene from "./scenes/HuntScene";
+import DungeonScene from "./scenes/DungeonScene";
 import HuntingCollisionEditor from "./scenes/HuntingCollisionEditor";
 import { installHuntAttackPatch } from "./patches/huntAttackPatch";
 
@@ -34,6 +35,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [
     GameScene,
     HuntScene,
+    DungeonScene,
     HuntingCollisionEditor,
   ],
 };
