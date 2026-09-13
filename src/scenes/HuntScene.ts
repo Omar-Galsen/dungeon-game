@@ -114,6 +114,11 @@ export default class HuntScene extends Phaser.Scene {
       this.load.image(`punch_left_${i}`, `./assets/sprites/punch/punch_left_${i}.png`);
       this.load.image(`punch_right_${i}`, `./assets/sprites/punch/punch_right_${i}.png`);
 
+      this.load.image(`sword_idle_down_${i}`, `./assets/sprites/sword/idle/sword_idle_down_${i}.png`);
+      this.load.image(`sword_idle_up_${i}`, `./assets/sprites/sword/idle/sword_idle_up_${i}.png`);
+      this.load.image(`sword_idle_left_${i}`, `./assets/sprites/sword/idle/sword_idle_left_${i}.png`);
+      this.load.image(`sword_idle_right_${i}`, `./assets/sprites/sword/idle/sword_idle_right_${i}.png`);
+
       this.load.image(`sword_walk_down_${i}`, `./assets/sprites/sword/walk/sword_walk_down_${i}.png`);
       this.load.image(`sword_walk_up_${i}`, `./assets/sprites/sword/walk/sword_walk_up_${i}.png`);
       this.load.image(`sword_walk_left_${i}`, `./assets/sprites/sword/walk/sword_walk_left_${i}.png`);
@@ -149,6 +154,18 @@ export default class HuntScene extends Phaser.Scene {
           })),
           frameRate: 18,
           repeat: 0,
+        });
+      }
+
+      const swordIdleKey = `sword_idle_${direction}`;
+      if (!this.anims.exists(swordIdleKey)) {
+        this.anims.create({
+          key: swordIdleKey,
+          frames: Array.from({ length: 8 }, (_, index) => ({
+            key: `sword_idle_${direction}_${index + 1}`,
+          })),
+          frameRate: 6,
+          repeat: -1,
         });
       }
 
@@ -246,7 +263,7 @@ export default class HuntScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(
       1715,
       455,
-      this.hasSword ? "sword_walk_down_1" : "char_down_1"
+      this.hasSword ? "sword_idle_down_1" : "char_down_1"
     );
 
     this.player.setDepth(20);
@@ -289,6 +306,8 @@ export default class HuntScene extends Phaser.Scene {
 
     this.cameras.main.setBounds(0, 0, 3000, 3000);
     this.cameras.main.startFollow(this.player, true, 0.10, 0.10);
+
+    if (this.hasSword) this.player.play("sword_idle_down", true);
 
     this.rubyText.setText(`♦  Rubies: ${this.rubies}`);
     this.updateHealthBar();
@@ -348,10 +367,13 @@ export default class HuntScene extends Phaser.Scene {
     if (moving && !this.swordAttackPlaying && !this.punchPlaying) {
       this.updatePlayerFrame();
     } else if (!this.swordAttackPlaying && !this.punchPlaying) {
-      this.player.anims.stop();
       if (this.hasSword) {
-        this.player.setTexture(`sword_walk_${this.currentDirection}_1`);
+        const idleKey = `sword_idle_${this.currentDirection}`;
+        if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== idleKey) {
+          this.player.play(idleKey, true);
+        }
       } else {
+        this.player.anims.stop();
         this.player.setTexture(`char_${this.currentDirection}_1`);
       }
       this.setPlayerSize();
@@ -597,8 +619,8 @@ export default class HuntScene extends Phaser.Scene {
       if (body && (Math.abs(body.velocity.x) > 0 || Math.abs(body.velocity.y) > 0)) {
         this.updatePlayerFrame();
       } else {
-        this.player.anims.stop();
-        this.player.setTexture(`sword_walk_${this.currentDirection}_1`);
+        const idleKey = `sword_idle_${this.currentDirection}`;
+        this.player.play(idleKey, true);
         this.setPlayerSize();
         this.updatePlayerBody();
       }
