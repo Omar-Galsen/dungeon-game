@@ -49,8 +49,8 @@ export default class DungeonScene extends Phaser.Scene {
   }
 
   preload() {
-    // Put the generated PNG at assets/maps/dungeon2_map.png.
-    this.load.image("dungeon2Map", "./assets/maps/dungeon2_map.png");
+    // This is the map currently uploaded in assets/maps on GitHub.
+    this.load.image("dungeon2Map", "./assets/maps/Dungeon 2 Cavern Map.png");
     this.load.json("dungeon2Collisions", "./assets/data/dungeon2_collisions.json");
 
     for (let i = 1; i <= 4; i++) {
@@ -73,39 +73,13 @@ export default class DungeonScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, this.worldWidth, this.worldHeight);
     this.cameras.main.setBounds(0, 0, this.worldWidth, this.worldHeight);
 
-    // Use the generated Dungeon II PNG when it is present. Keep a fallback so the
-    // scene still opens while the PNG is being copied into assets/maps.
-    if (this.textures.exists("dungeon2Map")) {
-      const map = this.add.image(0, 0, "dungeon2Map").setOrigin(0, 0);
-      map.setDisplaySize(this.worldWidth, this.worldHeight);
-      map.setDepth(0);
-    } else {
-      const fallback = this.add.rectangle(
-        this.worldWidth / 2,
-        this.worldHeight / 2,
-        this.worldWidth,
-        this.worldHeight,
-        0x090711,
-        1
-      );
-      fallback.setDepth(0);
+    const map = this.add.image(0, 0, "dungeon2Map").setOrigin(0, 0);
+    map.setDisplaySize(this.worldWidth, this.worldHeight);
+    map.setDepth(0);
 
-      this.add
-        .text(this.worldWidth / 2, 180, "DUNGEON II", {
-          fontFamily: "Georgia",
-          fontSize: "52px",
-          fontStyle: "bold",
-          color: "#f5d76e",
-          stroke: "#000000",
-          strokeThickness: 7,
-        })
-        .setOrigin(0.5)
-        .setDepth(1);
-    }
-
-    // These boxes were generated automatically from the PNG. Dark cave walls,
-    // outside void, and blue water were classified as blocked areas; bridges and
-    // walkable floor remain open.
+    // Collision boxes were generated from the Dungeon II PNG. They cover
+    // cave walls, black void and blue water while leaving floor paths and
+    // wooden bridges open for the player.
     this.walls = this.physics.add.staticGroup();
     for (const box of collisionData?.boxes ?? []) {
       const wall = this.walls.create(box.x, box.y, undefined) as Phaser.Physics.Arcade.Image;
