@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "prepare-assets": "node scripts/prepare-assets.mjs",
+    "build": "npm run prepare-assets && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
