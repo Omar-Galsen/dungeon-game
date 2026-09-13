@@ -28,7 +28,7 @@ export default class GameScene extends Phaser.Scene {
   private frame = 1;
   private animationTimer = 0;
 
-  private readonly PLAYER_HEIGHT = 72;
+  private readonly PLAYER_HEIGHT = 86;
   private readonly PLAYER_SPEED = 180;
 
   private health = 100;
