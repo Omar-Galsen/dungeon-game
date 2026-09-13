@@ -16,14 +16,9 @@ export function installSwordProgressionPatch() {
       this.registry.set("huntCleared", true);
       this.dungeonUnlocked = this.hasSword === true;
 
-      if (this.dungeonGate) {
-        this.dungeonGate.setVisible(this.dungeonUnlocked);
-      }
-
+      if (this.dungeonGate) this.dungeonGate.setVisible(this.dungeonUnlocked);
       if (this.slimeCountText) {
-        this.slimeCountText.setText(
-          this.hasSword ? "NEW DUNGEON UNLOCKED!" : "RETURN TO SHOP FOR SWORD!"
-        );
+        this.slimeCountText.setText(this.hasSword ? "NEW DUNGEON UNLOCKED!" : "RETURN TO SHOP FOR SWORD!");
       }
     }
   };
@@ -31,32 +26,20 @@ export function installSwordProgressionPatch() {
   huntProto.checkDungeonUnlock = function (this: SceneAny) {
     const remaining = this.slimes.filter((slime: any) => slime.alive).length;
     const cleared = remaining === 0 || this.registry.get("huntCleared") === true;
-
     if (cleared) this.registry.set("huntCleared", true);
-
     this.dungeonUnlocked = cleared && this.hasSword === true;
-
-    if (this.dungeonGate) {
-      this.dungeonGate.setVisible(this.dungeonUnlocked);
-    }
-
-    if (this.dungeonUnlocked && this.dungeonHint) {
-      this.dungeonHint.setText("X TO ENTER");
-    }
+    if (this.dungeonGate) this.dungeonGate.setVisible(this.dungeonUnlocked);
+    if (this.dungeonUnlocked && this.dungeonHint) this.dungeonHint.setText("X TO ENTER");
   };
 
   huntProto.updateSlimeCountText = function (this: SceneAny) {
     const remaining = this.slimes.filter((slime: any) => slime.alive).length;
-
     if (remaining > 0) {
       this.slimeCountText.setText(`Slimes remaining: ${remaining}`);
       return;
     }
-
     this.registry.set("huntCleared", true);
-    this.slimeCountText.setText(
-      this.hasSword ? "NEW DUNGEON UNLOCKED!" : "RETURN TO SHOP FOR SWORD!"
-    );
+    this.slimeCountText.setText(this.hasSword ? "NEW DUNGEON UNLOCKED!" : "RETURN TO SHOP FOR SWORD!");
   };
 
   const originalBuySword = gameProto.buySword;
@@ -70,7 +53,6 @@ export function installSwordProgressionPatch() {
       this.dialogueMessage.setText("Defeat all 8 slimes first. Then come back and I'll sell you the sword.");
       return;
     }
-
     originalBuySword.call(this);
   };
 
@@ -91,7 +73,6 @@ export function installSwordProgressionPatch() {
         this.dialogueMessage.setText("Before I sell you a sword, prove yourself. Defeat all 8 slimes on the hunting map.");
         return;
       }
-
       this.dialogueOpen = false;
       this.dialogueFinished = false;
       this.dialogueContainer.setVisible(false);
@@ -116,14 +97,14 @@ export function installSwordProgressionPatch() {
       this.dialogueTitle.setText("SHOPKEEPER");
       this.dialoguePortrait.setTexture("shopkeeper_face");
       this.dialogueMessage.setText(
-        this.rubies >= 20
-          ? "Good. The sword costs 20 rubies."
-          : "You defeated the slimes, but you still need 20 rubies for the sword."
+        this.rubies >= 150
+          ? "Good. The sword costs 150 rubies."
+          : "You defeated the slimes, but you still need 150 rubies for the sword."
       );
       return;
     }
 
-    if (this.dialogueStep === 3 && this.rubies >= 20) {
+    if (this.dialogueStep === 3 && this.rubies >= 150) {
       this.dialogueOpen = false;
       this.dialogueContainer.setVisible(false);
       this.openSwordShop();
