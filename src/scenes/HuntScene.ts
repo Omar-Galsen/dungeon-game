@@ -14,6 +14,18 @@ type CollisionData = {
   boxes: CollisionBox[];
 };
 
+type SlimeState = {
+  id: number;
+  sprite: Phaser.Physics.Arcade.Sprite;
+  hp: number;
+  alive: boolean;
+  direction: number;
+  minY: number;
+  maxY: number;
+  speed: number;
+  hearts: Phaser.GameObjects.Image[];
+};
+
 enum Animation {
   Down = "down",
   Up = "up",
@@ -24,19 +36,7 @@ enum Animation {
 export default class HuntScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private walls!: Phaser.Physics.Arcade.StaticGroup;
-
-  private slime!: Phaser.Physics.Arcade.Sprite;
-  private slimeHP = 30;
-  private slimeAlive = true;
-  private slimeDirection = 1;
-
-  private slime2!: Phaser.Physics.Arcade.Sprite;
-  private slime2HP = 30;
-  private slime2Alive = true;
-  private slime2Direction = 1;
-
-  private slimeHealthHearts: Phaser.GameObjects.Image[] = [];
-  private slime2HealthHearts: Phaser.GameObjects.Image[] = [];
+  private slimes: SlimeState[] = [];
 
   private cursors!: Record<
     "w" | "a" | "s" | "d" | "up" | "left" | "down" | "right",
@@ -55,6 +55,9 @@ export default class HuntScene extends Phaser.Scene {
   private readonly SWORD_IDLE_HEIGHT = 144;
   private readonly PLAYER_SPEED = 180;
 
+  private readonly SLIME_HEIGHT = 56;
+  private readonly TOTAL_SLIMES = 8;
+
   private health = 100;
   private maxHealth = 100;
   private rubies = 0;
@@ -63,6 +66,7 @@ export default class HuntScene extends Phaser.Scene {
   private healthBar!: Phaser.GameObjects.Rectangle;
   private healthText!: Phaser.GameObjects.Text;
   private rubyText!: Phaser.GameObjects.Text;
+  private slimeCountText!: Phaser.GameObjects.Text;
 
   private attackCooldown = 0;
   private slimeDamageCooldown = 0;
@@ -75,20 +79,16 @@ export default class HuntScene extends Phaser.Scene {
   private gameOver = false;
   private gameOverContainer?: Phaser.GameObjects.Container;
 
-  private readonly SLIME_X = 1530;
-  private readonly SLIME_TOP_Y = 690;
-  private readonly SLIME_BOTTOM_Y = 790;
-  private readonly SLIME_HEIGHT = 56;
-  private readonly SLIME_SPEED = 60;
-
-  private readonly SLIME2_X = 1350;
-  private readonly SLIME2_TOP_Y = 900;
-  private readonly SLIME2_BOTTOM_Y = 1000;
-  private readonly SLIME2_SPEED = 60;
-
   private readonly CAVE_X = 1715;
   private readonly CAVE_Y = 400;
   private readonly CAVE_DISTANCE = 115;
+
+  private readonly DUNGEON_X = 2425;
+  private readonly DUNGEON_Y = 2475;
+  private readonly DUNGEON_DISTANCE = 135;
+  private dungeonUnlocked = false;
+  private dungeonGate!: Phaser.GameObjects.Container;
+  private dungeonHint!: Phaser.GameObjects.Text;
 
   private caveLabel!: Phaser.GameObjects.Container;
   private caveHint!: Phaser.GameObjects.Text;
@@ -117,10 +117,10 @@ export default class HuntScene extends Phaser.Scene {
       this.load.image(`punch_left_${i}`, `./assets/sprites/punch/punch_left_${i}.png`);
       this.load.image(`punch_right_${i}`, `./assets/sprites/punch/punch_right_${i}.png`);
 
-      this.load.image(`sword_idle_down_${i}`, `/assets/sprites/sword/idle/sword_idle_down_${i}.png`);
-      this.load.image(`sword_idle_up_${i}`, `/assets/sprites/sword/idle/sword_idle_up_${i}.png`);
-      this.load.image(`sword_idle_left_${i}`, `/assets/sprites/sword/idle/sword_idle_left_${i}.png`);
-      this.load.image(`sword_idle_right_${i}`, `/assets/sprites/sword/idle/sword_idle_right_${i}.png`);
+      this.load.image(`sword_idle_down_${i}`, `./assets/sprites/sword/idle/sword_idle_down_${i}.png`);
+      this.load.image(`sword_idle_up_${i}`, `./assets/sprites/sword/idle/sword_idle_up_${i}.png`);
+      this.load.image(`sword_idle_left_${i}`, `./assets/sprites/sword/idle/sword_idle_left_${i}.png`);
+      this.load.image(`sword_idle_right_${i}`, `./assets/sprites/sword/idle/sword_idle_right_${i}.png`);
 
       this.load.image(`sword_walk_down_${i}`, `./assets/sprites/sword/walk/sword_walk_down_${i}.png`);
       this.load.image(`sword_walk_up_${i}`, `./assets/sprites/sword/walk/sword_walk_up_${i}.png`);
@@ -152,9 +152,7 @@ export default class HuntScene extends Phaser.Scene {
       if (!this.anims.exists(punchKey)) {
         this.anims.create({
           key: punchKey,
-          frames: Array.from({ length: 8 }, (_, index) => ({
-            key: `punch_${direction}_${index + 1}`,
-          })),
+          frames: Array.from({ length: 8 }, (_, index) => ({ key: `punch_${direction}_${index + 1}` })),
           frameRate: 18,
           repeat: 0,
         });
@@ -164,9 +162,7 @@ export default class HuntScene extends Phaser.Scene {
       if (!this.anims.exists(swordIdleKey)) {
         this.anims.create({
           key: swordIdleKey,
-          frames: Array.from({ length: 8 }, (_, index) => ({
-            key: `sword_idle_${direction}_${index + 1}`,
-          })),
+          frames: Array.from({ length: 8 }, (_, index) => ({ key: `sword_idle_${direction}_${index + 1}` })),
           frameRate: 6,
           repeat: -1,
         });
@@ -176,9 +172,7 @@ export default class HuntScene extends Phaser.Scene {
       if (!this.anims.exists(swordWalkKey)) {
         this.anims.create({
           key: swordWalkKey,
-          frames: Array.from({ length: 8 }, (_, index) => ({
-            key: `sword_walk_${direction}_${index + 1}`,
-          })),
+          frames: Array.from({ length: 8 }, (_, index) => ({ key: `sword_walk_${direction}_${index + 1}` })),
           frameRate: 12,
           repeat: -1,
         });
@@ -188,9 +182,7 @@ export default class HuntScene extends Phaser.Scene {
       if (!this.anims.exists(swordAttackKey)) {
         this.anims.create({
           key: swordAttackKey,
-          frames: Array.from({ length: 8 }, (_, index) => ({
-            key: `sword_attack_${direction}_${index + 1}`,
-          })),
+          frames: Array.from({ length: 8 }, (_, index) => ({ key: `sword_attack_${direction}_${index + 1}` })),
           frameRate: 20,
           repeat: 0,
         });
@@ -221,9 +213,7 @@ export default class HuntScene extends Phaser.Scene {
     if (!this.anims.exists("slime_move")) {
       this.anims.create({
         key: "slime_move",
-        frames: Array.from({ length: 8 }, (_, index) => ({
-          key: `slime_move_${index + 1}`,
-        })),
+        frames: Array.from({ length: 8 }, (_, index) => ({ key: `slime_move_${index + 1}` })),
         frameRate: 12,
         repeat: -1,
       });
@@ -268,7 +258,6 @@ export default class HuntScene extends Phaser.Scene {
       455,
       this.hasSword ? "sword_idle_down_1" : "char_down_1"
     );
-
     this.player.setDepth(20);
     this.player.setCollideWorldBounds(true);
     this.player.setPipeline(undefined);
@@ -302,10 +291,11 @@ export default class HuntScene extends Phaser.Scene {
     this.gameOver = false;
     this.rewardPopupOpen = false;
 
-    this.createSlime();
-    this.createSlime2();
+    this.createSlimes();
     this.createCaveLabel();
+    this.createDungeonGate();
     this.createHUD();
+    this.checkDungeonUnlock();
 
     this.cameras.main.setBounds(0, 0, 3000, 3000);
     this.cameras.main.startFollow(this.player, true, 0.10, 0.10);
@@ -314,6 +304,7 @@ export default class HuntScene extends Phaser.Scene {
 
     this.rubyText.setText(`♦  Rubies: ${this.rubies}`);
     this.updateHealthBar();
+    this.updateSlimeCountText();
   }
 
   update(_time: number, delta: number) {
@@ -383,21 +374,25 @@ export default class HuntScene extends Phaser.Scene {
       this.updatePlayerBody();
     }
 
-    this.updateSlime(delta);
-    this.updateSlime2(delta);
-    this.updateAllSlimeHealthHearts();
+    this.updateSlimes(delta);
     this.checkSlimeContactDamage();
 
     if (Phaser.Input.Keyboard.JustDown(this.attackKey)) this.attack();
-    if (Phaser.Input.Keyboard.JustDown(this.exitKey)) this.tryEnterCave();
+    if (Phaser.Input.Keyboard.JustDown(this.exitKey)) {
+      if (!this.tryEnterDungeon()) this.tryEnterCave();
+    }
   }
 
   private setPlayerSize() {
-    const isSwordIdle = this.player.texture.key.startsWith("sword_idle_");
-    this.player.setDisplaySize(
-      isSwordIdle ? this.SWORD_IDLE_WIDTH : this.PLAYER_WIDTH,
-      isSwordIdle ? this.SWORD_IDLE_HEIGHT : this.PLAYER_HEIGHT
-    );
+    const animKey = this.player.anims.currentAnim?.key ?? "";
+    const textureKey = this.player.texture?.key ?? "";
+    const isSwordIdle = animKey.startsWith("sword_idle_") || textureKey.startsWith("sword_idle_");
+
+    if (isSwordIdle) {
+      this.player.setDisplaySize(this.SWORD_IDLE_WIDTH, this.SWORD_IDLE_HEIGHT);
+    } else {
+      this.player.setDisplaySize(this.PLAYER_WIDTH, this.PLAYER_HEIGHT);
+    }
   }
 
   private updatePlayerBody() {
@@ -416,140 +411,119 @@ export default class HuntScene extends Phaser.Scene {
     this.updatePlayerBody();
   }
 
-  private createSlime() {
-    if (this.registry.get("slimeDefeated") === true) {
-      this.slimeAlive = false;
-      return;
-    }
-    this.slimeAlive = true;
-    this.slimeHP = 30;
-    this.slimeDirection = 1;
-    this.slime = this.physics.add.sprite(this.SLIME_X, this.SLIME_TOP_Y, "slime_idle_1");
-    this.slime.setDepth(15);
-    this.slime.setCollideWorldBounds(true);
-    this.slime.setDisplaySize(this.SLIME_HEIGHT, this.SLIME_HEIGHT);
-    const body = this.slime.body as Phaser.Physics.Arcade.Body;
-    body.setSize(this.SLIME_HEIGHT * 0.70, this.SLIME_HEIGHT * 0.62);
-    body.setOffset(this.SLIME_HEIGHT * 0.15, this.SLIME_HEIGHT * 0.22);
-    this.slime.play("slime_idle");
-    this.createSlimeHealthHearts(this.slime, this.slimeHealthHearts);
+  private createSlimes() {
+    const configs = [
+      { x: 1530, minY: 690, maxY: 790, speed: 60 },
+      { x: 1350, minY: 900, maxY: 1000, speed: 65 },
+      { x: 1120, minY: 1160, maxY: 1300, speed: 68 },
+      { x: 1600, minY: 1320, maxY: 1460, speed: 72 },
+      { x: 1960, minY: 1540, maxY: 1680, speed: 75 },
+      { x: 2200, minY: 1810, maxY: 1950, speed: 78 },
+      { x: 2050, minY: 2120, maxY: 2250, speed: 82 },
+      { x: 2390, minY: 2270, maxY: 2400, speed: 86 },
+    ];
+
+    this.slimes = [];
+
+    configs.forEach((config, index) => {
+      const id = index + 1;
+      const legacyKey = id === 1 ? "slimeDefeated" : id === 2 ? "slime2Defeated" : `huntSlimeDefeated_${id}`;
+      if (this.registry.get(legacyKey) === true) return;
+
+      const sprite = this.physics.add.sprite(config.x, config.minY, "slime_idle_1");
+      sprite.setDepth(15);
+      sprite.setCollideWorldBounds(true);
+      sprite.setDisplaySize(this.SLIME_HEIGHT, this.SLIME_HEIGHT);
+      const body = sprite.body as Phaser.Physics.Arcade.Body;
+      body.setSize(this.SLIME_HEIGHT * 0.70, this.SLIME_HEIGHT * 0.62);
+      body.setOffset(this.SLIME_HEIGHT * 0.15, this.SLIME_HEIGHT * 0.22);
+      sprite.play("slime_idle");
+
+      const state: SlimeState = {
+        id,
+        sprite,
+        hp: 30,
+        alive: true,
+        direction: 1,
+        minY: config.minY,
+        maxY: config.maxY,
+        speed: config.speed,
+        hearts: [],
+      };
+
+      this.createSlimeHealthHearts(state);
+      this.slimes.push(state);
+    });
   }
 
-  private createSlimeHealthHearts(slime: Phaser.Physics.Arcade.Sprite, hearts: Phaser.GameObjects.Image[]) {
-    for (const heart of hearts) heart.destroy();
-    hearts.length = 0;
+  private createSlimeHealthHearts(slime: SlimeState) {
     for (let i = 0; i < 3; i++) {
-      const heart = this.add.image(slime.x - 24 + i * 24, slime.y - 48, "heart_full");
+      const heart = this.add.image(slime.sprite.x - 24 + i * 24, slime.sprite.y - 48, "heart_full");
       heart.setDisplaySize(20, 20);
       heart.setDepth(100);
-      hearts.push(heart);
+      slime.hearts.push(heart);
     }
   }
 
-  private updateSlimeHealthHearts(slime: Phaser.Physics.Arcade.Sprite, hp: number, hearts: Phaser.GameObjects.Image[]) {
-    if (!slime || !slime.active) return;
-    const fullHearts = Math.floor(Phaser.Math.Clamp(hp, 0, 30) / 10);
-    for (let i = 0; i < hearts.length; i++) {
-      hearts[i].setPosition(slime.x - 24 + i * 24, slime.y - 48);
-      hearts[i].setTexture(i < fullHearts ? "heart_full" : "heart_empty");
-      hearts[i].setVisible(true);
+  private updateSlimeHealthHearts(slime: SlimeState) {
+    if (!slime.alive || !slime.sprite.active) return;
+    const fullHearts = Math.ceil(Phaser.Math.Clamp(slime.hp, 0, 30) / 10);
+    for (let i = 0; i < slime.hearts.length; i++) {
+      slime.hearts[i].setPosition(slime.sprite.x - 24 + i * 24, slime.sprite.y - 48);
+      slime.hearts[i].setTexture(i < fullHearts ? "heart_full" : "heart_empty");
+      slime.hearts[i].setVisible(true);
     }
   }
 
-  private updateAllSlimeHealthHearts() {
-    if (this.slimeAlive && this.slime?.active) {
-      this.updateSlimeHealthHearts(this.slime, this.slimeHP, this.slimeHealthHearts);
-    }
-    if (this.slime2Alive && this.slime2?.active) {
-      this.updateSlimeHealthHearts(this.slime2, this.slime2HP, this.slime2HealthHearts);
-    }
-  }
+  private updateSlimes(delta: number) {
+    for (const slime of this.slimes) {
+      if (!slime.alive || !slime.sprite.active) continue;
 
-  private updateSlime(delta: number) {
-    if (!this.slimeAlive || !this.slime?.active) return;
-    this.slime.y += this.slimeDirection * this.SLIME_SPEED * (delta / 1000);
-    if (this.slime.y >= this.SLIME_BOTTOM_Y) {
-      this.slime.y = this.SLIME_BOTTOM_Y;
-      this.slimeDirection = -1;
-    } else if (this.slime.y <= this.SLIME_TOP_Y) {
-      this.slime.y = this.SLIME_TOP_Y;
-      this.slimeDirection = 1;
-    }
-    this.slime.setVelocity(0, 0);
-    if (!this.slime.anims.isPlaying || this.slime.anims.currentAnim?.key !== "slime_move") {
-      this.slime.play("slime_move");
-    }
-  }
+      slime.sprite.y += slime.direction * slime.speed * (delta / 1000);
+      if (slime.sprite.y >= slime.maxY) {
+        slime.sprite.y = slime.maxY;
+        slime.direction = -1;
+      } else if (slime.sprite.y <= slime.minY) {
+        slime.sprite.y = slime.minY;
+        slime.direction = 1;
+      }
 
-  private createSlime2() {
-    if (this.registry.get("slime2Defeated") === true) {
-      this.slime2Alive = false;
-      return;
-    }
-    this.slime2Alive = true;
-    this.slime2HP = 30;
-    this.slime2Direction = 1;
-    this.slime2 = this.physics.add.sprite(this.SLIME2_X, this.SLIME2_TOP_Y, "slime_idle_1");
-    this.slime2.setDepth(15);
-    this.slime2.setCollideWorldBounds(true);
-    this.slime2.setDisplaySize(this.SLIME_HEIGHT, this.SLIME_HEIGHT);
-    const body = this.slime2.body as Phaser.Physics.Arcade.Body;
-    body.setSize(this.SLIME_HEIGHT * 0.70, this.SLIME_HEIGHT * 0.62);
-    body.setOffset(this.SLIME_HEIGHT * 0.15, this.SLIME_HEIGHT * 0.22);
-    this.slime2.play("slime_idle");
-    this.createSlimeHealthHearts(this.slime2, this.slime2HealthHearts);
-  }
-
-  private updateSlime2(delta: number) {
-    if (!this.slime2Alive || !this.slime2?.active) return;
-    this.slime2.y += this.slime2Direction * this.SLIME2_SPEED * (delta / 1000);
-    if (this.slime2.y >= this.SLIME2_BOTTOM_Y) {
-      this.slime2.y = this.SLIME2_BOTTOM_Y;
-      this.slime2Direction = -1;
-    } else if (this.slime2.y <= this.SLIME2_TOP_Y) {
-      this.slime2.y = this.SLIME2_TOP_Y;
-      this.slime2Direction = 1;
-    }
-    this.slime2.setVelocity(0, 0);
-    if (!this.slime2.anims.isPlaying || this.slime2.anims.currentAnim?.key !== "slime_move") {
-      this.slime2.play("slime_move");
+      slime.sprite.setVelocity(0, 0);
+      if (!slime.sprite.anims.isPlaying || slime.sprite.anims.currentAnim?.key !== "slime_move") {
+        slime.sprite.play("slime_move");
+      }
+      this.updateSlimeHealthHearts(slime);
     }
   }
 
   private checkSlimeContactDamage() {
     if (this.slimeDamageCooldown > 0 || this.health <= 0) return;
-    const contactDistance = 75;
-    const slimes = [
-      this.slimeAlive && this.slime?.active ? this.slime : null,
-      this.slime2Alive && this.slime2?.active ? this.slime2 : null,
-    ].filter((slime): slime is Phaser.Physics.Arcade.Sprite => slime !== null);
 
-    for (const slime of slimes) {
-      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, slime.x, slime.y);
-      if (distance <= contactDistance) {
-        const damage = 10;
-        this.health = Math.max(0, this.health - damage);
-        this.slimeDamageCooldown = 900;
-        this.registry.set("playerHealth", this.health);
-        this.updateHealthBar();
+    for (const slime of this.slimes) {
+      if (!slime.alive || !slime.sprite.active) continue;
+      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, slime.sprite.x, slime.sprite.y);
+      if (distance > 75) continue;
 
-        const flash = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0xff0000, 0.12);
-        flash.setScrollFactor(0);
-        flash.setDepth(1000);
-        this.tweens.add({ targets: flash, alpha: 0, duration: 180, onComplete: () => flash.destroy() });
+      this.health = Math.max(0, this.health - 10);
+      this.slimeDamageCooldown = 900;
+      this.registry.set("playerHealth", this.health);
+      this.updateHealthBar();
 
-        const angle = Phaser.Math.Angle.Between(slime.x, slime.y, this.player.x, this.player.y);
-        this.player.x += Math.cos(angle) * 18;
-        this.player.y += Math.sin(angle) * 18;
+      const flash = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0xff0000, 0.12);
+      flash.setScrollFactor(0);
+      flash.setDepth(1000);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 180, onComplete: () => flash.destroy() });
 
-        if (this.health <= 0) {
-          this.health = 0;
-          this.registry.set("playerHealth", 0);
-          this.player.setVelocity(0, 0);
-          this.showGameOver();
-        }
-        return;
+      const angle = Phaser.Math.Angle.Between(slime.sprite.x, slime.sprite.y, this.player.x, this.player.y);
+      this.player.x += Math.cos(angle) * 18;
+      this.player.y += Math.sin(angle) * 18;
+
+      if (this.health <= 0) {
+        this.registry.set("playerHealth", 0);
+        this.player.setVelocity(0, 0);
+        this.showGameOver();
       }
+      return;
     }
   }
 
@@ -560,36 +534,19 @@ export default class HuntScene extends Phaser.Scene {
     if (this.hasSword) this.playSwordAttack();
     else this.playPunchAttack();
 
-    const candidates: { slime: Phaser.Physics.Arcade.Sprite; distance: number; id: 1 | 2 }[] = [];
+    const target = this.slimes
+      .filter((slime) => slime.alive && slime.sprite.active)
+      .map((slime) => ({
+        slime,
+        distance: Phaser.Math.Distance.Between(this.player.x, this.player.y, slime.sprite.x, slime.sprite.y),
+      }))
+      .sort((a, b) => a.distance - b.distance)[0];
 
-    if (this.slimeAlive && this.slime?.active) {
-      candidates.push({
-        slime: this.slime,
-        distance: Phaser.Math.Distance.Between(this.player.x, this.player.y, this.slime.x, this.slime.y),
-        id: 1,
-      });
-    }
-    if (this.slime2Alive && this.slime2?.active) {
-      candidates.push({
-        slime: this.slime2,
-        distance: Phaser.Math.Distance.Between(this.player.x, this.player.y, this.slime2.x, this.slime2.y),
-        id: 2,
-      });
-    }
-
-    candidates.sort((a, b) => a.distance - b.distance);
-    const target = candidates[0];
     if (!target || target.distance > 105) return;
 
-    if (target.id === 1) {
-      this.slimeHP -= 10;
-      this.updateSlimeHealthHearts(this.slime, this.slimeHP, this.slimeHealthHearts);
-      if (this.slimeHP <= 0) this.killSlime();
-    } else {
-      this.slime2HP -= 10;
-      this.updateSlimeHealthHearts(this.slime2, this.slime2HP, this.slime2HealthHearts);
-      if (this.slime2HP <= 0) this.killSlime2();
-    }
+    target.slime.hp -= 10;
+    this.updateSlimeHealthHearts(target.slime);
+    if (target.slime.hp <= 0) this.killSlime(target.slime);
   }
 
   private playPunchAttack() {
@@ -638,21 +595,24 @@ export default class HuntScene extends Phaser.Scene {
     const g = this.add.graphics();
     g.setDepth(40);
     let angle = Phaser.Math.DegToRad(90);
-    const targets: Phaser.Physics.Arcade.Sprite[] = [];
-    if (this.slimeAlive && this.slime?.active) targets.push(this.slime);
-    if (this.slime2Alive && this.slime2?.active) targets.push(this.slime2);
-    if (targets.length > 0) {
-      targets.sort((a, b) =>
-        Phaser.Math.Distance.Between(this.player.x, this.player.y, a.x, a.y) -
-        Phaser.Math.Distance.Between(this.player.x, this.player.y, b.x, b.y)
-      );
-      angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, targets[0].x, targets[0].y);
+
+    const target = this.slimes
+      .filter((slime) => slime.alive && slime.sprite.active)
+      .sort(
+        (a, b) =>
+          Phaser.Math.Distance.Between(this.player.x, this.player.y, a.sprite.x, a.sprite.y) -
+          Phaser.Math.Distance.Between(this.player.x, this.player.y, b.sprite.x, b.sprite.y)
+      )[0];
+
+    if (target) {
+      angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.sprite.x, target.sprite.y);
     } else {
       if (this.currentDirection === Animation.Up) angle = -Math.PI / 2;
       if (this.currentDirection === Animation.Down) angle = Math.PI / 2;
       if (this.currentDirection === Animation.Left) angle = Math.PI;
       if (this.currentDirection === Animation.Right) angle = 0;
     }
+
     g.lineStyle(7, hit ? 0xf5d76e : 0xffffff, 0.9);
     g.beginPath();
     g.arc(this.player.x, this.player.y, 55, angle - 0.75, angle + 0.75);
@@ -664,31 +624,26 @@ export default class HuntScene extends Phaser.Scene {
     });
   }
 
-  private killSlime() {
-    this.slimeAlive = false;
-    this.registry.set("slimeDefeated", true);
-    this.slime.setVisible(false);
-    this.slime.disableBody(true, true);
-    for (const heart of this.slimeHealthHearts) heart.destroy();
-    this.slimeHealthHearts = [];
-    this.giveSlimeReward(this.slime.x, this.slime.y);
-  }
+  private killSlime(slime: SlimeState) {
+    slime.alive = false;
+    const key = slime.id === 1 ? "slimeDefeated" : slime.id === 2 ? "slime2Defeated" : `huntSlimeDefeated_${slime.id}`;
+    this.registry.set(key, true);
 
-  private killSlime2() {
-    this.slime2Alive = false;
-    this.registry.set("slime2Defeated", true);
-    this.slime2.setVisible(false);
-    this.slime2.disableBody(true, true);
-    for (const heart of this.slime2HealthHearts) heart.destroy();
-    this.slime2HealthHearts = [];
-    this.giveSlimeReward(this.slime2.x, this.slime2.y);
+    const rewardX = slime.sprite.x;
+    const rewardY = slime.sprite.y;
+    slime.sprite.disableBody(true, true);
+    for (const heart of slime.hearts) heart.destroy();
+    slime.hearts = [];
+
+    this.giveSlimeReward(rewardX, rewardY);
+    this.updateSlimeCountText();
+    this.checkDungeonUnlock();
   }
 
   private giveSlimeReward(x: number, y: number) {
     this.rubies += 20;
     this.registry.set("playerRubies", this.rubies);
     this.rubyText.setText(`♦  Rubies: ${this.rubies}`);
-    this.showSwordQuestPopup();
 
     const reward = this.add.text(x, y - 35, "+20 RUBIES", {
       fontFamily: "Georgia",
@@ -708,6 +663,73 @@ export default class HuntScene extends Phaser.Scene {
       ease: "Cubic.easeOut",
       onComplete: () => reward.destroy(),
     });
+  }
+
+  private checkDungeonUnlock() {
+    const remaining = this.slimes.filter((slime) => slime.alive).length;
+    this.dungeonUnlocked = remaining === 0;
+
+    if (this.dungeonGate) {
+      this.dungeonGate.setVisible(this.dungeonUnlocked);
+    }
+
+    if (this.dungeonUnlocked && this.dungeonHint) {
+      this.dungeonHint.setText("X TO ENTER");
+    }
+  }
+
+  private createDungeonGate() {
+    this.dungeonGate = this.add.container(this.DUNGEON_X, this.DUNGEON_Y);
+    this.dungeonGate.setDepth(60);
+
+    const glow = this.add.circle(0, 0, 72, 0x6d28d9, 0.30);
+    const gate = this.add.rectangle(0, 0, 110, 145, 0x171126, 0.96);
+    gate.setStrokeStyle(5, 0xa78bfa, 1);
+    const inner = this.add.rectangle(0, 8, 72, 105, 0x312e81, 0.92);
+    inner.setStrokeStyle(3, 0xc4b5fd, 1);
+    const title = this.add.text(0, -105, "NEW DUNGEON", {
+      fontFamily: "Georgia",
+      fontSize: "20px",
+      fontStyle: "bold",
+      color: "#f5d76e",
+      stroke: "#000000",
+      strokeThickness: 4,
+    });
+    title.setOrigin(0.5);
+
+    this.dungeonHint = this.add.text(0, 105, "X TO ENTER", {
+      fontFamily: "Arial",
+      fontSize: "15px",
+      fontStyle: "bold",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 4,
+    });
+    this.dungeonHint.setOrigin(0.5);
+
+    this.dungeonGate.add([glow, gate, inner, title, this.dungeonHint]);
+    this.dungeonGate.setVisible(false);
+
+    this.tweens.add({
+      targets: glow,
+      alpha: 0.65,
+      scale: 1.22,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  private tryEnterDungeon() {
+    if (!this.dungeonUnlocked) return false;
+    const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.DUNGEON_X, this.DUNGEON_Y);
+    if (distance > this.DUNGEON_DISTANCE) return false;
+
+    this.registry.set("playerRubies", this.rubies);
+    this.registry.set("playerHealth", this.health);
+    this.registry.set("dungeonTwoUnlocked", true);
+    this.scene.start("DungeonScene");
+    return true;
   }
 
   private showGameOver() {
@@ -769,7 +791,7 @@ export default class HuntScene extends Phaser.Scene {
       fontStyle: "bold",
       color: "#8b5e34",
     });
-    const message = this.add.text(-220, -28, "You've earned 20 rubies!\n\nGo get a sword for 20 rubies!", {
+    const message = this.add.text(-220, -28, "Defeat every slime to unlock the next dungeon!", {
       fontFamily: "Arial",
       fontSize: "20px",
       fontStyle: "bold",
@@ -823,7 +845,7 @@ export default class HuntScene extends Phaser.Scene {
     const hud = this.add.container(18, 18);
     hud.setScrollFactor(0);
     hud.setDepth(200);
-    const panel = this.add.rectangle(2, 3, 336, 143, 0x111827, 0.94);
+    const panel = this.add.rectangle(2, 3, 350, 170, 0x111827, 0.94);
     panel.setOrigin(0, 0);
     panel.setStrokeStyle(2, 0xc9a227, 0.95);
     hud.add(panel);
@@ -860,6 +882,21 @@ export default class HuntScene extends Phaser.Scene {
       color: "#f8fafc",
     });
     hud.add(this.rubyText);
+
+    this.slimeCountText = this.add.text(21, 136, "Slimes remaining: 8", {
+      fontFamily: "Arial",
+      fontSize: "16px",
+      fontStyle: "bold",
+      color: "#c4b5fd",
+    });
+    hud.add(this.slimeCountText);
+  }
+
+  private updateSlimeCountText() {
+    const remaining = this.slimes.filter((slime) => slime.alive).length;
+    this.slimeCountText.setText(
+      remaining > 0 ? `Slimes remaining: ${remaining}` : "NEW DUNGEON UNLOCKED!"
+    );
   }
 
   private updateHealthBar() {
