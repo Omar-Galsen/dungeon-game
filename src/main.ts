@@ -10,11 +10,13 @@ import { installHuntAttackPatch } from "./patches/huntAttackPatch";
 import { installHuntMinimapPatch } from "./patches/huntMinimapPatch";
 import { installSwordProgressionPatch } from "./patches/swordProgressionPatch";
 import { installHuntSlimePlacementPatch } from "./patches/huntSlimePlacementPatch";
+import { installCameraPolishPatch } from "./patches/cameraPolishPatch";
 
 installHuntAttackPatch();
 installHuntMinimapPatch();
 installSwordProgressionPatch();
 installHuntSlimePlacementPatch();
+installCameraPolishPatch();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
