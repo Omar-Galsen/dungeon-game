@@ -87,6 +87,35 @@ export function installHuntMinimapPatch() {
       }
     );
 
+    const dungeonX = typeof this.DUNGEON_X === "number" ? this.DUNGEON_X : 2780;
+    const dungeonY = typeof this.DUNGEON_Y === "number" ? this.DUNGEON_Y : 1150;
+
+    const dungeonMarker = this.add.circle(
+      worldToMini(dungeonX),
+      30 + worldToMini(dungeonY),
+      7,
+      0xa855f7,
+      1
+    );
+    dungeonMarker.setStrokeStyle(2, 0xffffff, 1);
+    dungeonMarker.setVisible(false);
+
+    const dungeonLabel = this.add.text(
+      worldToMini(dungeonX) - 8,
+      30 + worldToMini(dungeonY) + 9,
+      "DUNGEON",
+      {
+        fontFamily: "Arial",
+        fontSize: "9px",
+        fontStyle: "bold",
+        color: "#e9d5ff",
+        stroke: "#000000",
+        strokeThickness: 3,
+      }
+    );
+    dungeonLabel.setOrigin(1, 0);
+    dungeonLabel.setVisible(false);
+
     const youLegend = this.add.circle(118, 14, 4, 0x38bdf8, 1);
     const youText = this.add.text(126, 7, "YOU", {
       fontFamily: "Arial",
@@ -113,6 +142,8 @@ export function installHuntMinimapPatch() {
       mapShade,
       caveMarker,
       caveLabel,
+      dungeonMarker,
+      dungeonLabel,
       playerDot,
       ...slimeMarkers.map((marker) => marker.dot),
       youLegend,
@@ -126,6 +157,18 @@ export function installHuntMinimapPatch() {
     this.huntMinimapPlayerDot = playerDot;
     this.huntMinimapSlimeMarkers = slimeMarkers;
     this.huntMinimapCaveMarker = caveMarker;
+    this.huntMinimapDungeonMarker = dungeonMarker;
+    this.huntMinimapDungeonLabel = dungeonLabel;
+
+    this.tweens.add({
+      targets: dungeonMarker,
+      scale: 1.45,
+      alpha: 0.55,
+      duration: 650,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
 
     this.updateHuntMinimap();
   };
@@ -156,6 +199,16 @@ export function installHuntMinimapPatch() {
         worldToMini(slime.sprite.x),
         30 + worldToMini(slime.sprite.y)
       );
+    }
+
+    const remaining = (this.slimes ?? []).filter((slime: any) => slime.alive).length;
+    const huntCleared = remaining === 0 || this.registry.get("huntCleared") === true;
+
+    if (this.huntMinimapDungeonMarker) {
+      this.huntMinimapDungeonMarker.setVisible(huntCleared);
+    }
+    if (this.huntMinimapDungeonLabel) {
+      this.huntMinimapDungeonLabel.setVisible(huntCleared);
     }
   };
 
