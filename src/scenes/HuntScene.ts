@@ -51,6 +51,8 @@ export default class HuntScene extends Phaser.Scene {
 
   private readonly PLAYER_WIDTH = 93;
   private readonly PLAYER_HEIGHT = 124;
+  private readonly SWORD_IDLE_WIDTH = 108;
+  private readonly SWORD_IDLE_HEIGHT = 144;
   private readonly PLAYER_SPEED = 180;
 
   private health = 100;
@@ -391,9 +393,10 @@ export default class HuntScene extends Phaser.Scene {
   }
 
   private setPlayerSize() {
+    const isSwordIdle = this.player.texture.key.startsWith("sword_idle_");
     this.player.setDisplaySize(
-      this.PLAYER_WIDTH,
-      this.PLAYER_HEIGHT
+      isSwordIdle ? this.SWORD_IDLE_WIDTH : this.PLAYER_WIDTH,
+      isSwordIdle ? this.SWORD_IDLE_HEIGHT : this.PLAYER_HEIGHT
     );
   }
 
