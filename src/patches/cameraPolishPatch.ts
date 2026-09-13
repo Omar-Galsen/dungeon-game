@@ -26,17 +26,13 @@ function polishSceneCamera(
     camera.setRoundPixels(!huntQuality);
 
     if (player) {
-      // Keep the player as the visual center of the world. The camera follows with a
-      // soft delay rather than looking ahead, giving the feeling of walking through
-      // the woods while the environment moves naturally around the character.
-      camera.startFollow(
-        player,
-        true,
-        huntQuality ? 0.065 : 0.075,
-        huntQuality ? 0.065 : 0.075,
-      );
-      camera.setFollowOffset(0, 0);
-      camera.setDeadzone(0, 0);
+      // Cinematic third-person-inspired framing for a 2D game:
+      // keep the hero near the center, slightly lower in the frame, with a soft
+      // forward bias and springy camera response instead of a rigid lock-on.
+      const focus = scene.add.zone(player.x, player.y, 1, 1).setVisible(false);
+      camera.startFollow(focus, true, huntQuality ? 0.055 : 0.065, huntQuality ? 0.055 : 0.065);
+      camera.setFollowOffset(0, 34);
+      camera.setDeadzone(huntQuality ? 34 : 28, huntQuality ? 24 : 20);
 
       const shadow = scene.add.ellipse(
         player.x,
@@ -48,46 +44,74 @@ function polishSceneCamera(
       );
       shadow.setDepth(Math.max(0, player.depth - 1));
 
+      let lookX = 0;
+      let lookY = -1;
+      let focusX = player.x;
+      let focusY = player.y;
       let currentZoom = baseZoom;
+      let sway = 0;
 
-      scene.events.on(Phaser.Scenes.Events.UPDATE, () => {
-        if (!player.active || !shadow.active) return;
+      scene.events.on(Phaser.Scenes.Events.UPDATE, (_time: number, delta: number) => {
+        if (!player.active || !focus.active || !shadow.active) return;
 
         const vx = player.body?.velocity.x ?? 0;
         const vy = player.body?.velocity.y ?? 0;
         const speed = Math.hypot(vx, vy);
-        const moving = speed > 5;
+        const moving = speed > 8;
+
+        if (moving) {
+          const nx = vx / speed;
+          const ny = vy / speed;
+          lookX = Phaser.Math.Linear(lookX, nx, 0.075);
+          lookY = Phaser.Math.Linear(lookY, ny, 0.075);
+        }
+
+        // Modest look-ahead: enough to see where you are going while preserving
+        // the player as the visual anchor of the shot.
+        const lead = moving ? (huntQuality ? 72 : 58) : 30;
+        const targetX = player.x + lookX * lead;
+        const targetY = player.y + lookY * lead;
+
+        const followEase = moving ? 0.085 : 0.06;
+        focusX = Phaser.Math.Linear(focusX, targetX, followEase);
+        focusY = Phaser.Math.Linear(focusY, targetY, followEase);
+        focus.setPosition(focusX, focusY);
+
+        // A tiny breathing/sway motion makes traversal feel less like a flat editor camera.
+        sway += delta * 0.0022;
+        const swayAmount = moving ? 2.2 : 0.8;
+        camera.setFollowOffset(Math.sin(sway) * swayAmount, 34 + Math.cos(sway * 0.7) * 1.5);
 
         shadow.setPosition(player.x, player.y + shadowYOffset);
         shadow.setScale(moving ? 0.94 : 1, moving ? 0.88 : 1);
 
-        // Very small cinematic pull-back while walking. It keeps the player centered,
-        // but reveals a little more forest around them without making the map feel tiny.
-        const targetZoom = moving ? baseZoom - 0.018 : baseZoom;
-        currentZoom = Phaser.Math.Linear(currentZoom, targetZoom, 0.025);
+        // Pull back a little during traversal and return closer when standing still.
+        const targetZoom = moving ? baseZoom - (huntQuality ? 0.035 : 0.028) : baseZoom;
+        currentZoom = Phaser.Math.Linear(currentZoom, targetZoom, moving ? 0.035 : 0.022);
         camera.setZoom(currentZoom);
       });
 
       scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        focus.destroy();
         shadow.destroy();
       });
     }
 
-    // Light edge shading adds depth without covering the artwork.
+    // Subtle cinematic edge shading while keeping the map readable.
     const vignette = scene.add.graphics().setScrollFactor(0).setDepth(9998);
     const w = scene.scale.width;
     const h = scene.scale.height;
-    vignette.fillStyle(0x000000, huntQuality ? 0.045 : 0.075);
-    vignette.fillRect(0, 0, w, 14);
-    vignette.fillRect(0, h - 14, w, 14);
-    vignette.fillRect(0, 0, 14, h);
-    vignette.fillRect(w - 14, 0, 14, h);
+    vignette.fillStyle(0x000000, huntQuality ? 0.055 : 0.085);
+    vignette.fillRect(0, 0, w, 18);
+    vignette.fillRect(0, h - 18, w, 18);
+    vignette.fillRect(0, 0, 18, h);
+    vignette.fillRect(w - 18, 0, 18, h);
   };
 }
 
 export function installCameraPolishPatch() {
-  // The player remains centered while the camera gently trails their walk.
-  polishSceneCamera(HuntScene as unknown as SceneCtor, 0.90, 42, true);
-  polishSceneCamera(DungeonScene as unknown as SceneCtor, 0.86, 46);
-  polishSceneCamera(VillageScene as unknown as SceneCtor, 0.82, 46);
+  // Slightly tighter framing with smooth traversal, gentle look-ahead and dynamic pull-back.
+  polishSceneCamera(HuntScene as unknown as SceneCtor, 0.94, 42, true);
+  polishSceneCamera(DungeonScene as unknown as SceneCtor, 0.90, 46);
+  polishSceneCamera(VillageScene as unknown as SceneCtor, 0.87, 46);
 }
