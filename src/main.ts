@@ -6,9 +6,11 @@ import DungeonScene from "./scenes/DungeonScene";
 import HuntingCollisionEditor from "./scenes/HuntingCollisionEditor";
 import { installHuntAttackPatch } from "./patches/huntAttackPatch";
 import { installHuntMinimapPatch } from "./patches/huntMinimapPatch";
+import { installSwordProgressionPatch } from "./patches/swordProgressionPatch";
 
 installHuntAttackPatch();
 installHuntMinimapPatch();
+installSwordProgressionPatch();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
