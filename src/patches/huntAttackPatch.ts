@@ -120,13 +120,13 @@ export function installHuntAttackPatch() {
     });
   };
 
-  // Keep the next-dungeon marker beside the existing cave and show only an arrow.
+  // Put the next-dungeon entrance at the red-cross area shown on the hunt map.
   proto.createDungeonGate = function (this: HuntSceneAny) {
-    const dungeonX = 1555;
-    const dungeonY = 430;
+    const dungeonX = 2780;
+    const dungeonY = 1150;
     this.DUNGEON_X = dungeonX;
     this.DUNGEON_Y = dungeonY;
-    this.DUNGEON_DISTANCE = 105;
+    this.DUNGEON_DISTANCE = 115;
 
     this.dungeonGate = this.add.container(dungeonX, dungeonY);
     this.dungeonGate.setDepth(60);
