@@ -3,6 +3,9 @@ import Phaser from "phaser";
 import GameScene from "./scenes/GameScene";
 import HuntScene from "./scenes/HuntScene";
 import HuntingCollisionEditor from "./scenes/HuntingCollisionEditor";
+import { installHuntAttackPatch } from "./patches/huntAttackPatch";
+
+installHuntAttackPatch();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
