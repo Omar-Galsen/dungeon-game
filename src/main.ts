@@ -8,10 +8,12 @@ import HuntingCollisionEditor from "./scenes/HuntingCollisionEditor";
 import { installHuntAttackPatch } from "./patches/huntAttackPatch";
 import { installHuntMinimapPatch } from "./patches/huntMinimapPatch";
 import { installSwordProgressionPatch } from "./patches/swordProgressionPatch";
+import { installHuntSlimePlacementPatch } from "./patches/huntSlimePlacementPatch";
 
 installHuntAttackPatch();
 installHuntMinimapPatch();
 installSwordProgressionPatch();
+installHuntSlimePlacementPatch();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
