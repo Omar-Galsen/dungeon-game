@@ -15,6 +15,11 @@ type DungeonCollisionData = {
   boxes: CollisionBox[];
 };
 
+type AcidSlime = {
+  sprite: Phaser.Physics.Arcade.Sprite;
+  nextShotAt: number;
+};
+
 enum Direction {
   Down = "down",
   Up = "up",
@@ -25,6 +30,9 @@ enum Direction {
 export default class DungeonScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
   private walls!: Phaser.Physics.Arcade.StaticGroup;
+  private acidProjectiles!: Phaser.Physics.Arcade.Group;
+  private acidSlimes: AcidSlime[] = [];
+
   private cursors!: Record<
     "w" | "a" | "s" | "d" | "up" | "left" | "down" | "right",
     Phaser.Input.Keyboard.Key
@@ -35,6 +43,12 @@ export default class DungeonScene extends Phaser.Scene {
   private readonly PLAYER_SPEED = 180;
   private readonly PLAYER_WIDTH = 93;
   private readonly PLAYER_HEIGHT = 124;
+  private readonly ACID_RANGE = 680;
+  private readonly ACID_SPEED = 250;
+  private readonly ACID_DAMAGE = 10;
+
+  private playerHealth = 100;
+  private healthText!: Phaser.GameObjects.Text;
 
   private worldWidth = 2508;
   private worldHeight = 2508;
@@ -43,8 +57,6 @@ export default class DungeonScene extends Phaser.Scene {
   private readonly ENTRANCE_Y = 1020;
   private readonly EXIT_DISTANCE = 150;
 
-  // Extra breathing room around the central bridge so the player can cross
-  // without getting caught by small automatically generated edge blockers.
   private readonly CENTRAL_BRIDGE_CLEAR_ZONE = {
     left: 1010,
     right: 1290,
@@ -52,8 +64,6 @@ export default class DungeonScene extends Phaser.Scene {
     bottom: 1210,
   } as const;
 
-  // Keep the full staircase/corridor to the purple boss room walkable.
-  // This follows the stair path on the right side of the Dungeon II map.
   private readonly BOSS_STAIRS_CLEAR_ZONE = {
     left: 2070,
     right: 2305,
@@ -74,6 +84,7 @@ export default class DungeonScene extends Phaser.Scene {
       this.load.image(`d2_char_up_${i}`, `./assets/sprites/player/char_up_${i}.png`);
       this.load.image(`d2_char_left_${i}`, `./assets/sprites/player/char_left_${i}.png`);
       this.load.image(`d2_char_right_${i}`, `./assets/sprites/player/char_right_${i}.png`);
+      this.load.image(`d2_acid_slime_${i}`, `./assets/sprites/slimes/idle/slime_idle_${i}.png`);
     }
   }
 
@@ -93,13 +104,9 @@ export default class DungeonScene extends Phaser.Scene {
     map.setDisplaySize(this.worldWidth, this.worldHeight);
     map.setDepth(0);
 
-    // Auto-generated collision covers the black void, cave walls and water.
-    // Small edge blockers are removed only in explicitly walkable bridge/stair
-    // areas so the player can still reach the purple boss-room stairs.
     this.walls = this.physics.add.staticGroup();
     for (const box of collisionData?.boxes ?? []) {
       if (this.shouldClearWalkableAccessCollision(box)) continue;
-
       const wall = this.walls.create(box.x, box.y, undefined) as Phaser.Physics.Arcade.Image;
       wall.setVisible(false);
       wall.setDisplaySize(box.width, box.height);
@@ -107,6 +114,10 @@ export default class DungeonScene extends Phaser.Scene {
     }
 
     this.createAnimations();
+    this.createAcidTexture();
+
+    const savedHealth = this.registry.get("playerHealth");
+    this.playerHealth = typeof savedHealth === "number" ? savedHealth : 100;
 
     this.player = this.physics.add.sprite(this.ENTRANCE_X, this.ENTRANCE_Y, "d2_char_right_1");
     this.player.setDisplaySize(this.PLAYER_WIDTH, this.PLAYER_HEIGHT);
@@ -118,6 +129,18 @@ export default class DungeonScene extends Phaser.Scene {
     body.setOffset(this.PLAYER_WIDTH * 0.25, this.PLAYER_HEIGHT * 0.48);
 
     this.physics.add.collider(this.player, this.walls);
+
+    this.createAcidSlimes();
+    this.acidProjectiles = this.physics.add.group({ allowGravity: false });
+
+    this.physics.add.collider(this.acidProjectiles, this.walls, (projectile) => {
+      (projectile as Phaser.Physics.Arcade.Image).destroy();
+    });
+
+    this.physics.add.overlap(this.player, this.acidProjectiles, (_player, projectile) => {
+      (projectile as Phaser.Physics.Arcade.Image).destroy();
+      this.damagePlayerFromAcid();
+    });
 
     const entranceHint = this.add.text(
       this.ENTRANCE_X - 20,
@@ -134,6 +157,19 @@ export default class DungeonScene extends Phaser.Scene {
     );
     entranceHint.setOrigin(0.5);
     entranceHint.setDepth(30);
+
+    this.healthText = this.add.text(18, 18, `HP: ${this.playerHealth}/100`, {
+      fontFamily: "Arial",
+      fontSize: "20px",
+      fontStyle: "bold",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 5,
+      backgroundColor: "#111827",
+      padding: { x: 10, y: 6 },
+    });
+    this.healthText.setScrollFactor(0);
+    this.healthText.setDepth(1000);
 
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error("Keyboard input unavailable.");
@@ -155,7 +191,7 @@ export default class DungeonScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
   }
 
-  update() {
+  update(time: number) {
     let dx = 0;
     let dy = 0;
 
@@ -192,6 +228,8 @@ export default class DungeonScene extends Phaser.Scene {
     }
 
     this.player.setDisplaySize(this.PLAYER_WIDTH, this.PLAYER_HEIGHT);
+    this.updateAcidSlimes(time);
+    this.cleanupAcidProjectiles();
 
     if (
       Phaser.Input.Keyboard.JustDown(this.exitKey) &&
@@ -202,7 +240,125 @@ export default class DungeonScene extends Phaser.Scene {
         this.ENTRANCE_Y
       ) <= this.EXIT_DISTANCE
     ) {
+      this.registry.set("playerHealth", this.playerHealth);
       this.scene.start("HuntScene");
+    }
+  }
+
+  private createAcidSlimes() {
+    const spawnPoints = [
+      { x: 650, y: 560 },
+      { x: 1540, y: 470 },
+      { x: 1440, y: 1120 },
+      { x: 560, y: 1480 },
+      { x: 1130, y: 1830 },
+      { x: 1810, y: 1450 },
+      { x: 2100, y: 1840 },
+    ];
+
+    this.acidSlimes = spawnPoints.map((point, index) => {
+      const sprite = this.physics.add.sprite(point.x, point.y, "d2_acid_slime_1");
+      sprite.setDisplaySize(68, 58);
+      sprite.setTint(0x55ff66);
+      sprite.setDepth(18);
+      sprite.setImmovable(true);
+      sprite.play("d2_acid_slime_idle");
+      this.physics.add.collider(sprite, this.walls);
+
+      this.tweens.add({
+        targets: sprite,
+        y: point.y - 8,
+        duration: 700 + index * 60,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+
+      return {
+        sprite,
+        nextShotAt: 900 + index * 240,
+      };
+    });
+  }
+
+  private updateAcidSlimes(time: number) {
+    for (const slime of this.acidSlimes) {
+      if (!slime.sprite.active) continue;
+
+      const distance = Phaser.Math.Distance.Between(
+        slime.sprite.x,
+        slime.sprite.y,
+        this.player.x,
+        this.player.y
+      );
+
+      if (distance > this.ACID_RANGE || time < slime.nextShotAt) continue;
+
+      this.spitAcid(slime.sprite);
+      slime.nextShotAt = time + Phaser.Math.Between(1500, 2200);
+    }
+  }
+
+  private spitAcid(slime: Phaser.Physics.Arcade.Sprite) {
+    const acid = this.acidProjectiles.create(slime.x, slime.y, "d2_acid_blob") as Phaser.Physics.Arcade.Image;
+    acid.setDisplaySize(24, 24);
+    acid.setDepth(25);
+    acid.setBlendMode(Phaser.BlendModes.ADD);
+
+    const angle = Phaser.Math.Angle.Between(slime.x, slime.y, this.player.x, this.player.y);
+    this.physics.velocityFromRotation(angle, this.ACID_SPEED, acid.body.velocity);
+
+    this.tweens.add({
+      targets: acid,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 160,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  private createAcidTexture() {
+    if (this.textures.exists("d2_acid_blob")) return;
+
+    const graphics = this.make.graphics({ x: 0, y: 0 }, false);
+    graphics.fillStyle(0x9cff57, 1);
+    graphics.fillCircle(12, 12, 10);
+    graphics.fillStyle(0xeaff9d, 0.9);
+    graphics.fillCircle(9, 8, 4);
+    graphics.generateTexture("d2_acid_blob", 24, 24);
+    graphics.destroy();
+  }
+
+  private damagePlayerFromAcid() {
+    this.playerHealth = Math.max(0, this.playerHealth - this.ACID_DAMAGE);
+    this.registry.set("playerHealth", this.playerHealth);
+    this.healthText.setText(`HP: ${this.playerHealth}/100`);
+
+    this.player.setTint(0xa8ff84);
+    this.time.delayedCall(160, () => this.player.clearTint());
+
+    if (this.playerHealth > 0) return;
+
+    this.player.setVelocity(0, 0);
+    this.playerHealth = 100;
+    this.registry.set("playerHealth", 100);
+    this.time.delayedCall(250, () => {
+      this.scene.restart();
+    });
+  }
+
+  private cleanupAcidProjectiles() {
+    for (const child of this.acidProjectiles.getChildren()) {
+      const acid = child as Phaser.Physics.Arcade.Image;
+      if (
+        acid.x < -50 ||
+        acid.y < -50 ||
+        acid.x > this.worldWidth + 50 ||
+        acid.y > this.worldHeight + 50
+      ) {
+        acid.destroy();
+      }
     }
   }
 
@@ -215,12 +371,7 @@ export default class DungeonScene extends Phaser.Scene {
     const top = box.y - box.height / 2;
     const bottom = box.y + box.height / 2;
 
-    return (
-      right > zone.left &&
-      left < zone.right &&
-      bottom > zone.top &&
-      top < zone.bottom
-    );
+    return right > zone.left && left < zone.right && bottom > zone.top && top < zone.bottom;
   }
 
   private shouldClearWalkableAccessCollision(box: CollisionBox) {
@@ -228,9 +379,6 @@ export default class DungeonScene extends Phaser.Scene {
     const onBossStairs = this.boxOverlapsZone(box, this.BOSS_STAIRS_CLEAR_ZONE);
 
     if (!onCentralBridge && !onBossStairs) return false;
-
-    // Only clear the small/medium auto-generated edge cells. Large wall and
-    // void blockers remain solid so the player cannot walk through rock/black space.
     return box.width <= 320 && box.height <= 220;
   }
 
@@ -245,6 +393,15 @@ export default class DungeonScene extends Phaser.Scene {
           repeat: -1,
         });
       }
+    }
+
+    if (!this.anims.exists("d2_acid_slime_idle")) {
+      this.anims.create({
+        key: "d2_acid_slime_idle",
+        frames: [1, 2, 3, 4].map((i) => ({ key: `d2_acid_slime_${i}` })),
+        frameRate: 8,
+        repeat: -1,
+      });
     }
   }
 }
