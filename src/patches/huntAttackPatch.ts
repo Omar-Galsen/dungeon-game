@@ -126,7 +126,7 @@ export function installHuntAttackPatch() {
     const dungeonY = 1150;
     this.DUNGEON_X = dungeonX;
     this.DUNGEON_Y = dungeonY;
-    this.DUNGEON_DISTANCE = 115;
+    this.DUNGEON_DISTANCE = 180;
 
     this.dungeonGate = this.add.container(dungeonX, dungeonY);
     this.dungeonGate.setDepth(60);
@@ -142,7 +142,7 @@ export function installHuntAttackPatch() {
     arrow.setOrigin(0.5);
     arrow.setAngle(-8);
 
-    this.dungeonHint = this.add.text(0, 48, "X", {
+    this.dungeonHint = this.add.text(0, 48, "X TO ENTER", {
       fontFamily: "Arial",
       fontSize: "15px",
       fontStyle: "bold",
@@ -163,5 +163,32 @@ export function installHuntAttackPatch() {
       repeat: -1,
       ease: "Sine.easeInOut",
     });
+  };
+
+  // Use the visible gate's actual position for interaction so the X prompt and
+  // the entrance can never drift apart after the dungeon is moved on the map.
+  proto.tryEnterDungeon = function (this: HuntSceneAny) {
+    const huntCleared = this.registry.get("huntCleared") === true ||
+      (this.slimes ?? []).filter((slime: any) => slime.alive).length === 0;
+    const hasSword = this.registry.get("hasSword") === true || this.hasSword === true;
+
+    if (!huntCleared || !hasSword) return false;
+
+    const targetX = this.dungeonGate?.x ?? this.DUNGEON_X ?? 2780;
+    const targetY = this.dungeonGate?.y ?? this.DUNGEON_Y ?? 1150;
+    const distance = Phaser.Math.Distance.Between(
+      this.player.x,
+      this.player.y,
+      targetX,
+      targetY
+    );
+
+    if (distance > 180) return false;
+
+    this.registry.set("playerRubies", this.rubies);
+    this.registry.set("playerHealth", this.health);
+    this.registry.set("dungeonTwoUnlocked", true);
+    this.scene.start("DungeonScene");
+    return true;
   };
 }
