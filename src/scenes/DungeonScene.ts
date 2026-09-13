@@ -166,14 +166,52 @@ export default class DungeonScene extends Phaser.Scene {
 
   private spitAcid(slime: Phaser.Physics.Arcade.Sprite) {
     const acid = this.acidProjectiles.create(slime.x, slime.y, "d2_acid_blob") as Phaser.Physics.Arcade.Image;
-    acid.setDisplaySize(24, 24).setDepth(25).setBlendMode(Phaser.BlendModes.ADD);
-    const angle = Phaser.Math.Angle.Between(slime.x, slime.y, this.player.x, this.player.y); this.physics.velocityFromRotation(angle, this.ACID_SPEED, acid.body.velocity);
-    this.tweens.add({ targets: acid, scaleX: 1.3, scaleY: 1.3, duration: 160, yoyo: true, repeat: -1 });
+    acid.setDisplaySize(38, 28).setDepth(25);
+    acid.setBlendMode(Phaser.BlendModes.NORMAL);
+    acid.setRotation(Phaser.Math.Angle.Between(slime.x, slime.y, this.player.x, this.player.y));
+
+    const angle = Phaser.Math.Angle.Between(slime.x, slime.y, this.player.x, this.player.y);
+    this.physics.velocityFromRotation(angle, this.ACID_SPEED, acid.body.velocity);
+
+    this.tweens.add({
+      targets: acid,
+      scaleX: { from: 0.78, to: 1.18 },
+      scaleY: { from: 1.18, to: 0.72 },
+      angle: { from: -7, to: 7 },
+      duration: 110,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
   }
 
   private createAcidTexture() {
     if (this.textures.exists("d2_acid_blob")) return;
-    const graphics = this.make.graphics({ x: 0, y: 0 }, false); graphics.fillStyle(0x9cff57, 1); graphics.fillCircle(12, 12, 10); graphics.fillStyle(0xeaff9d, 0.9); graphics.fillCircle(9, 8, 4); graphics.generateTexture("d2_acid_blob", 24, 24); graphics.destroy();
+
+    const graphics = this.make.graphics({ x: 0, y: 0 }, false);
+
+    // Uneven main blob so it reads as thick slime instead of a glowing orb.
+    graphics.fillStyle(0x4fd329, 1);
+    graphics.fillEllipse(20, 16, 30, 20);
+    graphics.fillCircle(9, 17, 7);
+    graphics.fillCircle(29, 12, 7);
+    graphics.fillCircle(31, 21, 5);
+
+    // Darker rim and small dangling globules.
+    graphics.fillStyle(0x258d22, 0.95);
+    graphics.fillCircle(13, 23, 5);
+    graphics.fillCircle(25, 25, 4);
+    graphics.fillEllipse(34, 18, 7, 11);
+
+    // Wet highlights/bubbles.
+    graphics.fillStyle(0xc8ff8a, 0.95);
+    graphics.fillCircle(14, 11, 4);
+    graphics.fillCircle(23, 9, 3);
+    graphics.fillStyle(0xffffff, 0.65);
+    graphics.fillCircle(12, 9, 2);
+
+    graphics.generateTexture("d2_acid_blob", 40, 32);
+    graphics.destroy();
   }
 
   private damagePlayerFromAcid() {
