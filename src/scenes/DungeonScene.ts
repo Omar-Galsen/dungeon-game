@@ -39,14 +39,12 @@ export default class DungeonScene extends Phaser.Scene {
   private worldWidth = 2508;
   private worldHeight = 2508;
 
-  // Entrance position taken from the generated Dungeon II map.
   private readonly ENTRANCE_X = 440;
   private readonly ENTRANCE_Y = 1020;
   private readonly EXIT_DISTANCE = 150;
 
-  // Give the player a little more room around the central wooden bridge shown
-  // in the screenshot. Only small auto-generated collision cells that overlap
-  // this zone are removed; the larger cave walls stay solid.
+  // Extra breathing room around the central bridge so the player can cross
+  // without getting caught by small automatically generated edge blockers.
   private readonly CENTRAL_BRIDGE_CLEAR_ZONE = {
     left: 1010,
     right: 1290,
@@ -54,12 +52,20 @@ export default class DungeonScene extends Phaser.Scene {
     bottom: 1210,
   } as const;
 
+  // Keep the full staircase/corridor to the purple boss room walkable.
+  // This follows the stair path on the right side of the Dungeon II map.
+  private readonly BOSS_STAIRS_CLEAR_ZONE = {
+    left: 2070,
+    right: 2305,
+    top: 1010,
+    bottom: 1435,
+  } as const;
+
   constructor() {
     super("DungeonScene");
   }
 
   preload() {
-    // This is the map currently uploaded in assets/maps on GitHub.
     this.load.image("dungeon2Map", "./assets/maps/Dungeon 2 Cavern Map.png");
     this.load.json("dungeon2Collisions", "./assets/data/dungeon2_collisions.json");
 
@@ -87,13 +93,12 @@ export default class DungeonScene extends Phaser.Scene {
     map.setDisplaySize(this.worldWidth, this.worldHeight);
     map.setDepth(0);
 
-    // Collision boxes were generated from the Dungeon II PNG. They cover
-    // cave walls, black void and blue water while leaving floor paths and
-    // wooden bridges open for the player. Around the central bridge we ignore
-    // only the small cells that made the passage feel too tight.
+    // Auto-generated collision covers the black void, cave walls and water.
+    // Small edge blockers are removed only in explicitly walkable bridge/stair
+    // areas so the player can still reach the purple boss-room stairs.
     this.walls = this.physics.add.staticGroup();
     for (const box of collisionData?.boxes ?? []) {
-      if (this.shouldClearCentralBridgeCollision(box)) continue;
+      if (this.shouldClearWalkableAccessCollision(box)) continue;
 
       const wall = this.walls.create(box.x, box.y, undefined) as Phaser.Physics.Arcade.Image;
       wall.setVisible(false);
@@ -201,24 +206,32 @@ export default class DungeonScene extends Phaser.Scene {
     }
   }
 
-  private shouldClearCentralBridgeCollision(box: CollisionBox) {
-    const zone = this.CENTRAL_BRIDGE_CLEAR_ZONE;
+  private boxOverlapsZone(
+    box: CollisionBox,
+    zone: { left: number; right: number; top: number; bottom: number }
+  ) {
     const left = box.x - box.width / 2;
     const right = box.x + box.width / 2;
     const top = box.y - box.height / 2;
     const bottom = box.y + box.height / 2;
 
-    const overlapsZone =
+    return (
       right > zone.left &&
       left < zone.right &&
       bottom > zone.top &&
-      top < zone.bottom;
+      top < zone.bottom
+    );
+  }
 
-    if (!overlapsZone) return false;
+  private shouldClearWalkableAccessCollision(box: CollisionBox) {
+    const onCentralBridge = this.boxOverlapsZone(box, this.CENTRAL_BRIDGE_CLEAR_ZONE);
+    const onBossStairs = this.boxOverlapsZone(box, this.BOSS_STAIRS_CLEAR_ZONE);
 
-    // Keep large structural wall/void blockers, but remove the small edge cells
-    // around the bridge and nearby water so the player does not get snagged.
-    return box.width <= 280 && box.height <= 180;
+    if (!onCentralBridge && !onBossStairs) return false;
+
+    // Only clear the small/medium auto-generated edge cells. Large wall and
+    // void blockers remain solid so the player cannot walk through rock/black space.
+    return box.width <= 320 && box.height <= 220;
   }
 
   private createAnimations() {
