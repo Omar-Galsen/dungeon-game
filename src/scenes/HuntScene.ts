@@ -51,7 +51,7 @@ export default class HuntScene extends Phaser.Scene {
 
   private currentDirection: Animation = Animation.Down;
 
-  private readonly PLAYER_HEIGHT = 72;
+  private readonly PLAYER_HEIGHT = 98;
   private readonly PLAYER_SPEED = 180;
 
   private health = 100;
