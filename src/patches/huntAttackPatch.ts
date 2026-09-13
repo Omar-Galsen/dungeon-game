@@ -119,4 +119,49 @@ export function installHuntAttackPatch() {
       }
     });
   };
+
+  // Keep the next-dungeon marker beside the existing cave and show only an arrow.
+  proto.createDungeonGate = function (this: HuntSceneAny) {
+    const dungeonX = 1555;
+    const dungeonY = 430;
+    this.DUNGEON_X = dungeonX;
+    this.DUNGEON_Y = dungeonY;
+    this.DUNGEON_DISTANCE = 105;
+
+    this.dungeonGate = this.add.container(dungeonX, dungeonY);
+    this.dungeonGate.setDepth(60);
+
+    const arrow = this.add.text(0, 0, "➜", {
+      fontFamily: "Arial",
+      fontSize: "58px",
+      fontStyle: "bold",
+      color: "#f5d76e",
+      stroke: "#000000",
+      strokeThickness: 7,
+    });
+    arrow.setOrigin(0.5);
+    arrow.setAngle(-8);
+
+    this.dungeonHint = this.add.text(0, 48, "X", {
+      fontFamily: "Arial",
+      fontSize: "15px",
+      fontStyle: "bold",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 4,
+    });
+    this.dungeonHint.setOrigin(0.5);
+
+    this.dungeonGate.add([arrow, this.dungeonHint]);
+    this.dungeonGate.setVisible(false);
+
+    this.tweens.add({
+      targets: arrow,
+      x: 12,
+      duration: 550,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  };
 }
