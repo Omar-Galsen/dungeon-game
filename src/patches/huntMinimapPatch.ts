@@ -14,6 +14,8 @@ const MAP_X = 752;
 const MAP_Y = 18;
 const MAP_INSET = 8;
 const INNER_SIZE = MAP_SIZE - MAP_INSET * 2;
+const CAVE_X = 1715;
+const CAVE_Y = 400;
 
 function worldToMini(value: number) {
   return MAP_INSET + Phaser.Math.Clamp(value / WORLD_SIZE, 0, 1) * INNER_SIZE;
@@ -62,20 +64,46 @@ export function installHuntMinimapPatch() {
       slimeMarkers.push({ id: slime.id, dot });
     }
 
-    const youLegend = this.add.circle(128, 14, 4, 0x38bdf8, 1);
-    const youText = this.add.text(136, 7, "YOU", {
+    const caveMarker = this.add.circle(
+      worldToMini(CAVE_X),
+      30 + worldToMini(CAVE_Y),
+      6,
+      0xfacc15,
+      1
+    );
+    caveMarker.setStrokeStyle(2, 0x111827, 1);
+
+    const caveLabel = this.add.text(
+      worldToMini(CAVE_X) + 9,
+      30 + worldToMini(CAVE_Y) - 7,
+      "SHOP",
+      {
+        fontFamily: "Arial",
+        fontSize: "10px",
+        fontStyle: "bold",
+        color: "#fde68a",
+        stroke: "#000000",
+        strokeThickness: 3,
+      }
+    );
+
+    const youLegend = this.add.circle(118, 14, 4, 0x38bdf8, 1);
+    const youText = this.add.text(126, 7, "YOU", {
       fontFamily: "Arial",
-      fontSize: "11px",
+      fontSize: "10px",
       fontStyle: "bold",
       color: "#ffffff",
     });
-    const slimeLegend = this.add.circle(174, 14, 4, 0xef4444, 1);
-    const slimeText = this.add.text(182, 7, "SLIME", {
+
+    const slimeLegend = this.add.circle(158, 14, 4, 0xef4444, 1);
+    const slimeText = this.add.text(166, 7, "SLIME", {
       fontFamily: "Arial",
-      fontSize: "11px",
+      fontSize: "10px",
       fontStyle: "bold",
       color: "#ffffff",
     });
+
+    const shopLegend = this.add.circle(207, 14, 4, 0xfacc15, 1);
 
     container.add([
       shadow,
@@ -83,17 +111,21 @@ export function installHuntMinimapPatch() {
       title,
       mapImage,
       mapShade,
+      caveMarker,
+      caveLabel,
       playerDot,
       ...slimeMarkers.map((marker) => marker.dot),
       youLegend,
       youText,
       slimeLegend,
       slimeText,
+      shopLegend,
     ]);
 
     this.huntMinimap = container;
     this.huntMinimapPlayerDot = playerDot;
     this.huntMinimapSlimeMarkers = slimeMarkers;
+    this.huntMinimapCaveMarker = caveMarker;
 
     this.updateHuntMinimap();
   };
