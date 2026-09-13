@@ -44,6 +44,16 @@ export default class DungeonScene extends Phaser.Scene {
   private readonly ENTRANCE_Y = 1020;
   private readonly EXIT_DISTANCE = 150;
 
+  // Give the player a little more room around the central wooden bridge shown
+  // in the screenshot. Only small auto-generated collision cells that overlap
+  // this zone are removed; the larger cave walls stay solid.
+  private readonly CENTRAL_BRIDGE_CLEAR_ZONE = {
+    left: 1010,
+    right: 1290,
+    top: 980,
+    bottom: 1210,
+  } as const;
+
   constructor() {
     super("DungeonScene");
   }
@@ -79,9 +89,12 @@ export default class DungeonScene extends Phaser.Scene {
 
     // Collision boxes were generated from the Dungeon II PNG. They cover
     // cave walls, black void and blue water while leaving floor paths and
-    // wooden bridges open for the player.
+    // wooden bridges open for the player. Around the central bridge we ignore
+    // only the small cells that made the passage feel too tight.
     this.walls = this.physics.add.staticGroup();
     for (const box of collisionData?.boxes ?? []) {
+      if (this.shouldClearCentralBridgeCollision(box)) continue;
+
       const wall = this.walls.create(box.x, box.y, undefined) as Phaser.Physics.Arcade.Image;
       wall.setVisible(false);
       wall.setDisplaySize(box.width, box.height);
@@ -186,6 +199,26 @@ export default class DungeonScene extends Phaser.Scene {
     ) {
       this.scene.start("HuntScene");
     }
+  }
+
+  private shouldClearCentralBridgeCollision(box: CollisionBox) {
+    const zone = this.CENTRAL_BRIDGE_CLEAR_ZONE;
+    const left = box.x - box.width / 2;
+    const right = box.x + box.width / 2;
+    const top = box.y - box.height / 2;
+    const bottom = box.y + box.height / 2;
+
+    const overlapsZone =
+      right > zone.left &&
+      left < zone.right &&
+      bottom > zone.top &&
+      top < zone.bottom;
+
+    if (!overlapsZone) return false;
+
+    // Keep large structural wall/void blockers, but remove the small edge cells
+    // around the bridge and nearby water so the player does not get snagged.
+    return box.width <= 280 && box.height <= 180;
   }
 
   private createAnimations() {
