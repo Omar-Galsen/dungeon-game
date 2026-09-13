@@ -86,9 +86,7 @@ export default class GameScene extends Phaser.Scene {
     for (const direction of directions) {
       this.anims.create({
         key: `player_${direction}`,
-        frames: [1, 2, 3, 4].map((i) => ({
-          key: `char_${direction}_${i}`,
-        })),
+        frames: [1, 2, 3, 4].map((i) => ({ key: `char_${direction}_${i}` })),
         frameRate: 10,
         repeat: -1,
       });
@@ -170,9 +168,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.dialogueOpen) this.player.setVelocity(0, 0);
     else this.player.setVelocity(dx * this.PLAYER_SPEED, dy * this.PLAYER_SPEED);
 
-    if (moving && !this.dialogueOpen) {
-      this.updatePlayerFrame();
-    } else {
+    if (moving && !this.dialogueOpen) this.updatePlayerFrame();
+    else {
       this.player.anims.stop();
       this.player.setTexture(`char_${this.currentDirection}_1`);
       this.setPlayerSize();
@@ -246,19 +243,19 @@ export default class GameScene extends Phaser.Scene {
   private startDialogue() { this.dialogueOpen = true; this.dialogueStep = 0; this.player.setVelocity(0, 0); this.dialogueContainer.setVisible(true); this.showDialogue(); }
   private showDialogue() {
     if (this.swordOwned) { this.dialogueTitle.setText("SHOPKEEPER"); this.dialoguePortrait.setTexture("shopkeeper_face"); this.dialogueMessage.setText("Your sword is ready. Good luck on your journey!"); return; }
-    if (this.dialogueStep === 0) { this.dialogueTitle.setText("PLAYER"); this.dialoguePortrait.setTexture("player_face"); this.dialogueMessage.setText(this.rubies >= 20 ? `I have ${this.rubies} rubies.` : "I have no rubies."); return; }
-    if (this.dialogueStep === 1) { this.dialogueTitle.setText("SHOPKEEPER"); this.dialoguePortrait.setTexture("shopkeeper_face"); this.dialogueMessage.setText(this.rubies >= 20 ? "Perfect. I can sell you this sword for 20 rubies." : "You need 20 rubies. Go hunting and come back when you have enough."); return; }
-    if (this.dialogueStep === 2 && this.rubies >= 20) { this.dialogueOpen = false; this.dialogueContainer.setVisible(false); this.openSwordShop(); return; }
+    if (this.dialogueStep === 0) { this.dialogueTitle.setText("PLAYER"); this.dialoguePortrait.setTexture("player_face"); this.dialogueMessage.setText(this.rubies >= 150 ? `I have ${this.rubies} rubies.` : "I don't have enough rubies yet."); return; }
+    if (this.dialogueStep === 1) { this.dialogueTitle.setText("SHOPKEEPER"); this.dialoguePortrait.setTexture("shopkeeper_face"); this.dialogueMessage.setText(this.rubies >= 150 ? "Perfect. I can sell you this sword for 150 rubies." : "You need 150 rubies. Go hunting and come back when you have enough."); return; }
+    if (this.dialogueStep === 2 && this.rubies >= 150) { this.dialogueOpen = false; this.dialogueContainer.setVisible(false); this.openSwordShop(); return; }
     this.dialogueOpen = false; this.dialogueFinished = true; this.dialogueContainer.setVisible(false);
   }
   private nextDialogue() { this.dialogueStep += 1; this.showDialogue(); }
 
   private openSwordShop() {
-    this.swordShopOpen = true; this.dialogueContainer.setVisible(true); this.dialogueTitle.setText("SWORD SHOP"); this.dialoguePortrait.setTexture("shopkeeper_face"); this.dialogueMessage.setText("Sword — 20 rubies\nPress SPACE to buy.");
+    this.swordShopOpen = true; this.dialogueContainer.setVisible(true); this.dialogueTitle.setText("SWORD SHOP"); this.dialoguePortrait.setTexture("shopkeeper_face"); this.dialogueMessage.setText("Sword — 150 rubies\nPress SPACE to buy.");
   }
   private buySword() {
-    if (this.rubies < 20 || this.swordOwned) return;
-    this.rubies -= 20; this.swordOwned = true; this.registry.set("playerRubies", this.rubies); this.registry.set("hasSword", true); this.rubyText.setText(`Rubies: ${this.rubies}`); this.swordShopOpen = false; this.dialogueFinished = true; this.dialogueContainer.setVisible(false);
+    if (this.rubies < 150 || this.swordOwned) return;
+    this.rubies -= 150; this.swordOwned = true; this.registry.set("playerRubies", this.rubies); this.registry.set("hasSword", true); this.rubyText.setText(`Rubies: ${this.rubies}`); this.swordShopOpen = false; this.dialogueFinished = true; this.dialogueContainer.setVisible(false);
   }
 
   private createHuntGuide() {
