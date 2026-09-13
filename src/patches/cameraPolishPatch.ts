@@ -68,7 +68,7 @@ function polishSceneCamera(
 
         // Modest look-ahead: enough to see where you are going while preserving
         // the player as the visual anchor of the shot.
-        const lead = moving ? (huntQuality ? 72 : 58) : 30;
+        const lead = moving ? (huntQuality ? 62 : 58) : 26;
         const targetX = player.x + lookX * lead;
         const targetY = player.y + lookY * lead;
 
@@ -85,8 +85,8 @@ function polishSceneCamera(
         shadow.setPosition(player.x, player.y + shadowYOffset);
         shadow.setScale(moving ? 0.94 : 1, moving ? 0.88 : 1);
 
-        // Pull back a little during traversal and return closer when standing still.
-        const targetZoom = moving ? baseZoom - (huntQuality ? 0.035 : 0.028) : baseZoom;
+        // Keep the Hunting map close even while moving; only a tiny pull-back is used.
+        const targetZoom = moving ? baseZoom - (huntQuality ? 0.018 : 0.028) : baseZoom;
         currentZoom = Phaser.Math.Linear(currentZoom, targetZoom, moving ? 0.035 : 0.022);
         camera.setZoom(currentZoom);
       });
@@ -110,8 +110,8 @@ function polishSceneCamera(
 }
 
 export function installCameraPolishPatch() {
-  // Slightly tighter framing with smooth traversal, gentle look-ahead and dynamic pull-back.
-  polishSceneCamera(HuntScene as unknown as SceneCtor, 0.94, 42, true);
+  // Hunting is intentionally closer so the character and nearby paths dominate the view.
+  polishSceneCamera(HuntScene as unknown as SceneCtor, 1.12, 42, true);
   polishSceneCamera(DungeonScene as unknown as SceneCtor, 0.90, 46);
   polishSceneCamera(VillageScene as unknown as SceneCtor, 0.87, 46);
 }
