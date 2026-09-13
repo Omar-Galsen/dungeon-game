@@ -114,10 +114,10 @@ export default class HuntScene extends Phaser.Scene {
       this.load.image(`punch_left_${i}`, `./assets/sprites/punch/punch_left_${i}.png`);
       this.load.image(`punch_right_${i}`, `./assets/sprites/punch/punch_right_${i}.png`);
 
-      this.load.image(`sword_idle_down_${i}`, `./assets/sprites/sword/idle/sword_idle_down_${i}.png`);
-      this.load.image(`sword_idle_up_${i}`, `./assets/sprites/sword/idle/sword_idle_up_${i}.png`);
-      this.load.image(`sword_idle_left_${i}`, `./assets/sprites/sword/idle/sword_idle_left_${i}.png`);
-      this.load.image(`sword_idle_right_${i}`, `./assets/sprites/sword/idle/sword_idle_right_${i}.png`);
+      this.load.image(`sword_idle_down_${i}`, `/assets/sprites/sword/idle/sword_idle_down_${i}.png`);
+      this.load.image(`sword_idle_up_${i}`, `/assets/sprites/sword/idle/sword_idle_up_${i}.png`);
+      this.load.image(`sword_idle_left_${i}`, `/assets/sprites/sword/idle/sword_idle_left_${i}.png`);
+      this.load.image(`sword_idle_right_${i}`, `/assets/sprites/sword/idle/sword_idle_right_${i}.png`);
 
       this.load.image(`sword_walk_down_${i}`, `./assets/sprites/sword/walk/sword_walk_down_${i}.png`);
       this.load.image(`sword_walk_up_${i}`, `./assets/sprites/sword/walk/sword_walk_up_${i}.png`);
