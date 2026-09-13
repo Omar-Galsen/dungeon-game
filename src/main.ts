@@ -5,8 +5,10 @@ import HuntScene from "./scenes/HuntScene";
 import DungeonScene from "./scenes/DungeonScene";
 import HuntingCollisionEditor from "./scenes/HuntingCollisionEditor";
 import { installHuntAttackPatch } from "./patches/huntAttackPatch";
+import { installHuntMinimapPatch } from "./patches/huntMinimapPatch";
 
 installHuntAttackPatch();
+installHuntMinimapPatch();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
